@@ -12,9 +12,16 @@ file(
     src/*.cc
 )
 
+file(
+    GLOB_RECURSE
+    kdmp_srcfiles
+    ${CMAKE_CURRENT_LIST_DIR}/libs/kdmp-parser/src/lib/*.cc
+)
+
 add_executable(
     clairvoyance
     ${clairvoyance_srcfiles}
+    ${kdmp_srcfiles}
 )
 
 add_compile_definitions(FMT_HEADER_ONLY)
