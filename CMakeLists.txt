@@ -6,6 +6,9 @@ set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 
 project(clairvoyance)
 
+include_directories(${CMAKE_CURRENT_LIST_DIR}/third_party/fmt/include)
+include_directories(${CMAKE_CURRENT_LIST_DIR}/third_party/kdmp-parser/src/lib)
+
 file(
     GLOB_RECURSE
     clairvoyance_srcfiles
@@ -15,16 +18,21 @@ file(
 file(
     GLOB_RECURSE
     kdmp_srcfiles
-    ${CMAKE_CURRENT_LIST_DIR}/libs/kdmp-parser/src/lib/*.cc
+    ${CMAKE_CURRENT_LIST_DIR}/third_party/kdmp-parser/src/lib/*.cc
+)
+
+file(
+    GLOB_RECURSE
+    fmt_srcfiles
+    ${CMAKE_CURRENT_LIST_DIR}/third_party/fmt/src/*.cc
 )
 
 add_executable(
     clairvoyance
     ${clairvoyance_srcfiles}
     ${kdmp_srcfiles}
+    ${fmt_srcfiles}
 )
-
-add_compile_definitions(FMT_HEADER_ONLY)
 
 if (WIN32)
     # https://docs.microsoft.com/en-us/cpp/build/reference/zc-cplusplus
