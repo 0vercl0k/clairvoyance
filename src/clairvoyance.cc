@@ -3,6 +3,7 @@
 #include "fmt/os.h"
 #include "hilbert.h"
 #include "kdmp-parser.h"
+#include <cmath>
 #include <filesystem>
 #include <optional>
 #include <unordered_map>
@@ -11,6 +12,67 @@ namespace fs = std::filesystem;
 
 namespace clairvoyance {
 using KernelDumpParser_t = kdmpparser::KernelDumpParser;
+
+namespace color {
+constexpr uint32_t Black = 0x00'00'00;
+constexpr uint32_t Green = 0x00'ff'00;
+constexpr uint32_t PaleGreen = 0xa9'ff'52;
+constexpr uint32_t CanaryYellow = 0xff'ff'99;
+constexpr uint32_t Yellow = 0xff'ff'00;
+constexpr uint32_t Purple = 0xa0'20'f0;
+constexpr uint32_t Mauve = 0xe0'b0'ff;
+constexpr uint32_t Red = 0xfe'00'00;
+constexpr uint32_t LightRed = 0xff'7f'7f;
+}; // namespace color
+
+enum class Properties_t : uint8_t {
+  None,
+  UserRead,
+  UserReadExec,
+  UserReadWrite,
+  UserReadWriteExec,
+  KernelRead,
+  KernelReadExec,
+  KernelReadWrite,
+  KernelReadWriteExec
+};
+
+constexpr std::string_view PropertiesToString(const Properties_t &Prop) {
+  using enum Properties_t;
+  switch (Prop) {
+  case None:
+    return "None";
+  case UserRead:
+    return "UserRead";
+  case UserReadExec:
+    return "UserReadExec";
+  case UserReadWrite:
+    return "UserReadWrite";
+  case UserReadWriteExec:
+    return "UserReadWriteExec";
+  case KernelRead:
+    return "KernelRead";
+  case KernelReadExec:
+    return "KernelReadExec";
+  case KernelReadWrite:
+    return "KernelReadWrite";
+  case KernelReadWriteExec:
+    return "KernelReadWriteExec";
+  }
+
+  std::abort();
+}
+
+const std::unordered_map<Properties_t, uint32_t> PropertiesToRgb = {
+    {Properties_t::None, color::Black},
+    {Properties_t::UserRead, color::PaleGreen},
+    {Properties_t::UserReadExec, color::CanaryYellow},
+    {Properties_t::UserReadWrite, color::Mauve},
+    {Properties_t::UserReadWriteExec, color::LightRed},
+    {Properties_t::KernelRead, color::Green},
+    {Properties_t::KernelReadExec, color::Yellow},
+    {Properties_t::KernelReadWrite, color::Purple},
+    {Properties_t::KernelReadWriteExec, color::Red}};
 
 namespace Page {
 
@@ -134,41 +196,6 @@ struct VirtualAddress_t {
 
 static_assert(sizeof(VirtualAddress_t) == 8);
 
-enum class Properties_t {
-  UserRead,
-  UserReadExec,
-  UserReadWrite,
-  UserReadWriteExec,
-  KernelRead,
-  KernelReadExec,
-  KernelReadWrite,
-  KernelReadWriteExec
-};
-
-constexpr std::string_view PropertiesToString(const Properties_t &Prop) {
-  using enum Properties_t;
-  switch (Prop) {
-  case UserRead:
-    return "UserRead";
-  case UserReadExec:
-    return "UserReadExec";
-  case UserReadWrite:
-    return "UserReadWrite";
-  case UserReadWriteExec:
-    return "UserReadWriteExec";
-  case KernelRead:
-    return "KernelRead";
-  case KernelReadExec:
-    return "KernelReadExec";
-  case KernelReadWrite:
-    return "KernelReadWrite";
-  case KernelReadWriteExec:
-    return "KernelReadWriteExec";
-  }
-
-  std::abort();
-}
-
 constexpr Properties_t PropertiesFromPtes(const PteHardware_t Pml4e,
                                           const PteHardware_t Pdpte,
                                           const PteHardware_t Pde = 0,
@@ -225,14 +252,13 @@ constexpr Properties_t PropertiesFromPtes(const PteHardware_t Pml4e,
   std::abort();
 } // namespace clairvoyance
 
-enum class Color_t { Black, White, Red };
-
 class DumpColor_t {
 public:
 private:
   KernelDumpParser_t DumpParser_;
-  std::vector<Color_t> Colors_;
+  std::vector<Properties_t> Colors_;
   std::unordered_multimap<uint64_t, uint64_t> Reverse_;
+  uint64_t LastVa_ = 0;
 
   static std::string PageTableBitsToString(const PteHardware_t &Entry) {
     std::string S("-----------");
@@ -296,25 +322,46 @@ private:
       Pa = Page::AddressFromPfn(Pte.u.PageFrameNumber);
     }
 
+    if ((LastVa_ + Page::Size) != Va.U64() && LastVa_ > 0) {
+      //
+      // We have a gap, split it in 2mb chunk of black pixels.
+      //
+
+      uint64_t N = 0;
+      constexpr uint64_t _2Mb = 1024 * 1024 * 2;
+      constexpr uint64_t MaxGapEntries = 10'000;
+      for (uint64_t LastVa = LastVa_; (LastVa + _2Mb) < Va.U64();
+           LastVa += _2Mb) {
+        Colors_.emplace_back(Properties_t::None);
+        N++;
+        if (N >= MaxGapEntries) {
+          fmt::print("Huge gap from {:x} to {:x}, skipping\n", LastVa_,
+                     Va.U64());
+          break;
+        }
+      }
+
+      // if (N > 0) {
+      //  fmt::print("Filled a gap with {} {:x} {:x}\n", N, LastVa_, Va.U64());
+      //}
+    }
+
     const uint64_t NumberPixels = GetNumberPixels(PageType);
     const auto Properties = PropertiesFromPtes(Pml4e, Pdpte, Pde, Pte);
     for (uint64_t Idx = 0; Idx < NumberPixels; Idx++) {
       const uint64_t CurrentPa = Page::AddressFromPfn(Pa, Idx);
       const uint64_t CurrentVa = Page::AddressFromPfn(Va.U64(), Idx);
-      if (CurrentVa == 0xffffdf8000369000) {
-        fmt::print("{:x}: {:x} {:x} {:x} {:x}\n", CurrentVa, Pml4e.AsUINT64,
-                   Pdpte.AsUINT64, Pde.AsUINT64, Pte.AsUINT64);
-        __debugbreak();
-      }
+      LastVa_ = CurrentVa;
 
       if (Reverse_.count(CurrentPa) >= 10) {
         continue;
       }
 
-      fmt::print("VA:{:#x} ({}, {}) PA:{:#x}\n", CurrentVa,
-                 PropertiesToString(Properties),
-                 PageType != PageType_t::NormalPage ? ">4k" : "4k", CurrentPa);
-      Colors_.emplace_back(Color_t::Red);
+      // fmt::print("VA:{:#x} ({}, {}) PA:{:#x}\n", CurrentVa,
+      //           PropertiesToString(Properties),
+      //           PageType != PageType_t::NormalPage ? ">4k" : "4k",
+      //           CurrentPa);
+      Colors_.emplace_back(Properties);
       Reverse_.emplace(CurrentPa, CurrentVa);
     }
   }
@@ -332,9 +379,8 @@ public:
     }
 
     if (DumpParser_.GetDumpType() != kdmpparser::DumpType_t::FullDump) {
-      fmt::print("/!\\ {} is not a full dump so some of the page table "
-                 "hierarchy will be missing\n",
-                 DumpFile.string());
+      fmt::print("/!\\ {} is not a full dump so some pages might be missing\n",
+                 DumpFile.filename().string());
     }
 
     constexpr uint64_t NumberEntries = (Page::Size / sizeof(uint64_t));
@@ -435,7 +481,32 @@ public:
       }
     }
 
-    fmt::print("{} pixels have been materialized\n", Colors_.size());
+    const uint64_t Log2 = std::log2(float(Colors_.size()));
+    const uint64_t Order = (Log2 + 1) / 2;
+    const uint64_t Height = Hilbert::Height(Order);
+    const uint64_t Width = Hilbert::Width(Order);
+    std::vector<Properties_t> Pixels(Height * Width);
+
+    fmt::print("{} pixels have been materialized; will get layed out on hcurve "
+               "order {} ({} pixels)\n",
+               Colors_.size(), Order, Width * Height);
+
+    auto File = fmt::output_file("vis.ppm");
+    File.print("P3\n{} {}\n255\n", Width, Height);
+    uint32_t Distance = 0;
+    for (const auto &Color : Colors_) {
+      const auto &[X, Y] = Hilbert::CoordinatesFromDistance(Distance, Order);
+      const uint32_t Idx = (Y * Width) + X;
+      Pixels.at(Idx) = Color;
+      Distance++;
+    }
+
+    for (const auto Prop : Pixels) {
+      const uint32_t Rgb = PropertiesToRgb.at(Prop);
+      File.print("{} {} {}\n", (Rgb >> 16) & 0xff, (Rgb >> 8) & 0xff,
+                 (Rgb >> 0) & 0xff);
+    }
+
 #if 0
     for (auto It = Reverse_.cbegin(); It != Reverse_.cend(); It++) {
       const uint64_t Pa = It->first;
@@ -463,30 +534,6 @@ int main(int argc, char *argv[]) {
     fmt::print("./clairvoyance <filename>\n");
     return 0;
   }
-
-  const uint32_t Order = 9;
-  uint32_t Color = 0xff'ff'ff;
-  constexpr uint32_t Height = Hilbert::Height(Order);
-  constexpr uint32_t Width = Hilbert::Width(Order);
-  std::vector<uint32_t> Pixels(Height * Width);
-
-  auto File = fmt::output_file("h.ppm");
-  File.print("P3\n{} {}\n255\n", Width, Height);
-  for (uint32_t Distance = 0; Distance < Hilbert::NumberPoints(Order);
-       Distance++) {
-    const auto &[X, Y] = Hilbert::CoordinatesFromDistance(Distance, Order);
-    // fmt::print("{} -> ({}, {})\n", Distance, X, Y);
-    const uint32_t Idx = (Y * Width) + X;
-    Pixels.at(Idx) = Color;
-    Color -= 0x10;
-  }
-
-  fmt::print("Writing..\n");
-  for (const uint32_t Color : Pixels) {
-    File.print("{} {} {}\n", (Color >> 0) & 0xff, (Color >> 8) & 0xff,
-               (Color >> 16) & 0xff);
-  }
-  File.close();
 
   const fs::path DumpFile(argv[1]);
   clairvoyance::DumpColor_t DumpColor;
