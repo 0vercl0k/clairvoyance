@@ -99,15 +99,15 @@ struct VirtualAddress_t {
     u.AsUINT64 = Value;
   }
 
-  constexpr explicit VirtualAddress_t(const PteHardware_t Pml4e,
-                                      const PteHardware_t Pdpte,
-                                      const PteHardware_t Pde,
-                                      const PteHardware_t Pte) {
+  constexpr explicit VirtualAddress_t(const uint64_t Pml4eIndex,
+                                      const uint64_t PdpteIndex,
+                                      const uint64_t PdeIndex = 0,
+                                      const uint64_t PteIndex = 0) {
     u.AsUINT64 = 0;
-    Pml4Index(Pml4e.u.PageFrameNumber);
-    PdptIndex(Pdpte.u.PageFrameNumber);
-    PdIndex(Pde.u.PageFrameNumber);
-    PtIndex(Pte.u.PageFrameNumber);
+    Pml4Index(Pml4eIndex);
+    PdptIndex(PdpteIndex);
+    PdIndex(PdeIndex);
+    PtIndex(PteIndex);
   }
 
   constexpr uint64_t U64() const { return u.AsUINT64; }
@@ -129,18 +129,6 @@ struct VirtualAddress_t {
     } else {
       u.u.Reserved = 0;
     }
-  }
-
-  static constexpr VirtualAddress_t FromPtes(const PteHardware_t Pml4e,
-                                             const PteHardware_t Pdpte,
-                                             const PteHardware_t Pde,
-                                             const PteHardware_t Pte) {
-    VirtualAddress_t Va(0);
-    Va.Pml4Index(Pml4e.u.PageFrameNumber);
-    Va.Pml4Index(Pdpte.u.PageFrameNumber);
-    Va.Pml4Index(Pde.u.PageFrameNumber);
-    Va.Pml4Index(Pte.u.PageFrameNumber);
-    return Va;
   }
 };
 
@@ -186,18 +174,24 @@ constexpr Properties_t PropertiesFromPtes(const PteHardware_t Pml4e,
                                           const PteHardware_t Pde = 0,
                                           const PteHardware_t Pte = 0) {
   using enum Properties_t;
-#define CalculateBit(FieldName)                                                \
-  bool FieldName = Pml4e.u.##FieldName && Pdpte.u.##FieldName;                 \
-  if (!Pdpte.u.LargePage) {                                                    \
-    FieldName &= Pde.u.##FieldName;                                            \
-  }                                                                            \
-  if (!Pte.u.LargePage) {                                                      \
-    FieldName &= Pte.u.##FieldName;                                            \
-  }
+  auto And = [](const bool A, const bool B) { return A && B; };
+  auto Or = [](const bool A, const bool B) { return A || B; };
 
-  CalculateBit(UserAccessible);
-  CalculateBit(Write);
-  CalculateBit(NoExecute);
+#define CalculateBit(FieldName, Comp)                                          \
+  [&]() {                                                                      \
+    bool FieldName = Comp(Pml4e.u.##FieldName, Pdpte.u.##FieldName);           \
+    if (!Pdpte.u.LargePage) {                                                  \
+      FieldName = Comp(FieldName, Pde.u.##FieldName);                          \
+    }                                                                          \
+    if (!Pde.u.LargePage) {                                                    \
+      FieldName = Comp(FieldName, Pte.u.##FieldName);                          \
+    }                                                                          \
+    return FieldName;                                                          \
+  }();
+
+  const bool UserAccessible = CalculateBit(UserAccessible, And);
+  const bool Write = CalculateBit(Write, And);
+  const bool NoExecute = CalculateBit(NoExecute, Or);
 
   if (UserAccessible) {
     if (Write) {
@@ -287,12 +281,11 @@ private:
     std::abort();
   }
 
-  void AddPage(const PteHardware_t Pml4e, const PteHardware_t Pdpte,
-               const PteHardware_t Pde = 0, const PteHardware_t Pte = 0) {
+  void AddPage(const VirtualAddress_t &Va, const PteHardware_t Pml4e,
+               const PteHardware_t Pdpte, const PteHardware_t Pde = 0,
+               const PteHardware_t Pte = 0) {
     PageType_t PageType = PageType_t::NormalPage;
     uint64_t Pa = 0;
-    const auto Properties = PropertiesFromPtes(Pml4e, Pdpte, Pde, Pte);
-    const VirtualAddress_t Va(Pml4e, Pdpte, Pde, Pte);
     if (Pdpte.u.LargePage) {
       PageType = PageType_t::HugePage;
       Pa = Page::AddressFromPfn(Pdpte.u.PageFrameNumber);
@@ -304,16 +297,23 @@ private:
     }
 
     const uint64_t NumberPixels = GetNumberPixels(PageType);
+    const auto Properties = PropertiesFromPtes(Pml4e, Pdpte, Pde, Pte);
     for (uint64_t Idx = 0; Idx < NumberPixels; Idx++) {
       const uint64_t CurrentPa = Page::AddressFromPfn(Pa, Idx);
       const uint64_t CurrentVa = Page::AddressFromPfn(Va.U64(), Idx);
+      if (CurrentVa == 0xffffdf8000369000) {
+        fmt::print("{:x}: {:x} {:x} {:x} {:x}\n", CurrentVa, Pml4e.AsUINT64,
+                   Pdpte.AsUINT64, Pde.AsUINT64, Pte.AsUINT64);
+        __debugbreak();
+      }
 
       if (Reverse_.count(CurrentPa) >= 10) {
         continue;
       }
 
-      fmt::print("VA:{:#x} ({}) PA:{:#x}\n", CurrentVa,
-                 PropertiesToString(Properties), CurrentPa);
+      fmt::print("VA:{:#x} ({}, {}) PA:{:#x}\n", CurrentVa,
+                 PropertiesToString(Properties),
+                 PageType != PageType_t::NormalPage ? ">4k" : "4k", CurrentPa);
       Colors_.emplace_back(Color_t::Red);
       Reverse_.emplace(CurrentPa, CurrentVa);
     }
@@ -370,6 +370,17 @@ public:
           continue;
         }
 
+        if (Pdpte.u.LargePage) {
+
+          //
+          // Huge page (1GB).
+          //
+
+          const VirtualAddress_t Va(Pml4Idx, PdptIdx);
+          AddPage(Va, Pml4e, Pdpte);
+          continue;
+        }
+
         const uint64_t PdpteAddress =
             PdptAddress + (PdptIdx * sizeof(uint64_t));
         const uint64_t PdAddress =
@@ -381,23 +392,20 @@ public:
           continue;
         }
 
-        if (Pdpte.u.LargePage) {
-
-          //
-          // If the translation does not use a PDE (because the PS flag is 1
-          // in the PDPTE used), the page size is 1 GByte and the page
-          // number comprises bits 47 : 30 of the linear address.
-          //
-
-          // AddPixels(PdAddress & 0xffff'ffff'c000'0000, Va.U64(),
-          //          PageType_t::HugePage);
-          AddPage(Pml4e, Pdpte);
-          continue;
-        }
-
         for (uint64_t PdIdx = 0; PdIdx < NumberEntries; PdIdx++) {
           const auto &Pde = Pd[PdIdx];
           if (!Pde.u.Present) {
+            continue;
+          }
+
+          if (Pde.u.LargePage) {
+
+            //
+            // Large page (2MB).
+            //
+
+            const VirtualAddress_t Va(Pml4Idx, PdptIdx, PdIdx);
+            AddPage(Va, Pml4e, Pdpte, Pde);
             continue;
           }
 
@@ -413,21 +421,6 @@ public:
             continue;
           }
 
-          if (Pde.u.LargePage) {
-
-            //
-            // If the translation does use a PDE but does not uses a PTE
-            // (because the PS flag is 1 in the PDE used), the page size is
-            // 2 MBytes and the page number comprises bits 47 : 21 of the
-            // address.
-            //
-
-            // AddPixels(PtAddress & 0xffff'ffff'ffe0'0000, Va.U64(), Prop,
-            //          PageType_t::LargePage);
-            AddPage(Pml4e, Pdpte, Pde);
-            continue;
-          }
-
           for (uint64_t PtIdx = 0; PtIdx < NumberEntries; PtIdx++) {
             const auto &Pte = Pt[PtIdx];
             if (!Pte.u.Present) {
@@ -435,30 +428,8 @@ public:
             }
 
             const uint64_t PteAddress = PtAddress + (PtIdx * sizeof(uint64_t));
-
-#if 0
-PXE at FFFFDFEFF7FBF000    PPE at FFFFDFEFF7E00008    PDE at FFFFDFEFC0001B58    PTE at FFFFDF800036B000
-contains 0A00000015981867  contains 0A00000056C9A867  contains 0A000000CB7A9867  contains 080000007A8AC025
-pfn 15981     ---DA--UWEV  pfn 56c9a     ---DA--UWEV  pfn cb7a9     ---DA--UWEV  pfn 7a8ac     ----A--UREV
-            fmt::print(
-                "PML4E at {:016x} PDPTE at {:016x} PDE at {:016x}   PTE at "
-                "{:016x}\n",
-                Pml4eAddress, PdpteAddress, PdeAddress, PteAddress);
-            fmt::print("contains {:016x} contains {:016x} contains {:016x} "
-                       "contains {:016x}\n",
-                       Pml4e.AsUINT64, Pdpte.AsUINT64, Pde.AsUINT64,
-                       Pte.AsUINT64);
-            fmt::print("pfn {:09x} {} pfn {:09x} {} pfn {:09x} {} "
-                       "pfn {:09x} {}\n",
-                       Pml4e.u.PageFrameNumber, PageTableBitsToString(Pml4e),
-                       Pdpte.u.PageFrameNumber, PageTableBitsToString(Pdpte),
-                       Pde.u.PageFrameNumber, PageTableBitsToString(Pde),
-                       Pte.u.PageFrameNumber, PageTableBitsToString(Pte));
-
-            fmt::print("    VA {:#x}\n", Va.AsUINT64);
-#endif
-
-            AddPage(Pml4e, Pdpte, Pde, Pte);
+            const VirtualAddress_t Va(Pml4Idx, PdptIdx, PdIdx, PtIdx);
+            AddPage(Va, Pml4e, Pdpte, Pde, Pte);
           }
         }
       }
