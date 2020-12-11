@@ -1,0 +1,53 @@
+# Axel '0vercl0k' Souchet - December 11 2020
+name: Builds
+
+on: [push, pull_request]
+
+jobs:
+  Linux2004Gcc:
+    name: Ubuntu 20.04
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get -y update
+        sudo apt install -y g++-multilib ninja-build
+
+    - name: Build
+      run: |
+        cmake --version
+        cd src/build
+        chmod u+x ./build-release.sh
+        CC=gcc-10 CXX=g++-10 ./build-release.sh
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: linx64-RelWithDebInfo
+        path: build/clairvoyance
+
+  Windows:
+    name: Windows latest
+    runs-on: windows-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Setup vs prompt
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Build
+      run: |
+        cd src\build
+        .\build-release.bat
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: winx64-RelWithDebInfo
+        path: |
+          build/RelWithDebInfo/clairvoyance.exe
+          build/RelWithDebInfo/clairvoyance.pdb
