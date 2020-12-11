@@ -11,9 +11,8 @@
 namespace fs = std::filesystem;
 
 namespace clairvoyance {
-using KernelDumpParser_t = kdmpparser::KernelDumpParser;
-
 namespace color {
+constexpr uint32_t White = 0xff'ff'ff;
 constexpr uint32_t Black = 0x00'00'00;
 constexpr uint32_t Green = 0x00'ff'00;
 constexpr uint32_t PaleGreen = 0xa9'ff'52;
@@ -115,7 +114,6 @@ constexpr bool Canonical(const uint64_t Va) {
   const uint64_t Upper = Va >> 47ULL;
   return Upper == 0b11111111111111111 || Upper == 0;
 }
-
 } // namespace Page
 
 union PteHardware_t {
@@ -134,7 +132,9 @@ union PteHardware_t {
     uint64_t ReservedForSoftware : 11;
     uint64_t NoExecute : 1;
   } u;
-  uint64_t AsUINT64;
+  uint64_t AsUINT64 = 0;
+
+  constexpr PteHardware_t() = default;
   constexpr PteHardware_t(const uint64_t Value) : AsUINT64(Value) {}
 };
 
@@ -249,14 +249,51 @@ constexpr Properties_t PropertiesFromPtes(const PteHardware_t Pml4e,
       return KernelReadExec;
     }
   }
+
   std::abort();
 } // namespace clairvoyance
 
+enum class PageType_t { Huge, Large, Normal };
+
+static constexpr uint64_t GetNumberPixels(const PageType_t PageType) {
+  using enum PageType_t;
+  switch (PageType) {
+  case Huge: {
+
+    //
+    // Huge pages are 1GB so we'll add the below number of pixels.
+    //
+
+    return (1024 * 1024 * 1024) / Page::Size;
+  }
+
+  case Large: {
+
+    //
+    // Large pages are 2MB so we'll add the below number of pixels.
+    //
+
+    return (1024 * 1024 * 2) / Page::Size;
+  }
+
+  case Normal: {
+
+    //
+    // This is a normal page, so we'll just materialize a single pixel.
+    //
+
+    return 1;
+  }
+  }
+
+  std::abort();
+}
+
+#if 0
 class DumpColor_t {
-public:
 private:
-  KernelDumpParser_t DumpParser_;
-  std::vector<Properties_t> Colors_;
+  kdmpparser::KernelDumpParser DumpParser_;
+  std::vector<Properties_t> Tape_;
   std::unordered_multimap<uint64_t, uint64_t> Reverse_;
   uint64_t LastVa_ = 0;
 
@@ -274,38 +311,6 @@ private:
   }
 
   enum class PageType_t { HugePage, LargePage, NormalPage };
-  constexpr uint64_t GetNumberPixels(const PageType_t PageType) {
-    switch (PageType) {
-    case PageType_t::HugePage: {
-
-      //
-      // Huge pages are 1GB so we'll add the below number of pixels.
-      //
-
-      return (1024 * 1024 * 1024) / Page::Size;
-    }
-
-    case PageType_t::LargePage: {
-
-      //
-      // Large pages are 2MB so we'll add the below number of pixels.
-      //
-
-      return (1024 * 1024 * 2) / Page::Size;
-    }
-
-    case PageType_t::NormalPage: {
-
-      //
-      // This is a normal page, so we'll just materialize a single pixel.
-      //
-
-      return 1;
-    }
-    }
-
-    std::abort();
-  }
 
   void AddPage(const VirtualAddress_t &Va, const PteHardware_t Pml4e,
                const PteHardware_t Pdpte, const PteHardware_t Pde = 0,
@@ -322,7 +327,7 @@ private:
       Pa = Page::AddressFromPfn(Pte.u.PageFrameNumber);
     }
 
-    if ((LastVa_ + Page::Size) != Va.U64() && LastVa_ > 0) {
+    if ((LastVa_ + Page::Size) != Va.U64()) {
       //
       // We have a gap, split it in 2mb chunk of black pixels.
       //
@@ -332,7 +337,7 @@ private:
       constexpr uint64_t MaxGapEntries = 10'000;
       for (uint64_t LastVa = LastVa_; (LastVa + _2Mb) < Va.U64();
            LastVa += _2Mb) {
-        Colors_.emplace_back(Properties_t::None);
+        Tape_.emplace_back(Properties_t::None);
         N++;
         if (N >= MaxGapEntries) {
           fmt::print("Huge gap from {:x} to {:x}, skipping\n", LastVa_,
@@ -361,7 +366,7 @@ private:
       //           PropertiesToString(Properties),
       //           PageType != PageType_t::NormalPage ? ">4k" : "4k",
       //           CurrentPa);
-      Colors_.emplace_back(Properties);
+      Tape_.emplace_back(Properties);
       Reverse_.emplace(CurrentPa, CurrentVa);
     }
   }
@@ -481,32 +486,6 @@ public:
       }
     }
 
-    const uint64_t Log2 = std::log2(float(Colors_.size()));
-    const uint64_t Order = (Log2 + 1) / 2;
-    const uint64_t Height = Hilbert::Height(Order);
-    const uint64_t Width = Hilbert::Width(Order);
-    std::vector<Properties_t> Pixels(Height * Width);
-
-    fmt::print("{} pixels have been materialized; will get layed out on hcurve "
-               "order {} ({} pixels)\n",
-               Colors_.size(), Order, Width * Height);
-
-    auto File = fmt::output_file("vis.ppm");
-    File.print("P3\n{} {}\n255\n", Width, Height);
-    uint32_t Distance = 0;
-    for (const auto &Color : Colors_) {
-      const auto &[X, Y] = Hilbert::CoordinatesFromDistance(Distance, Order);
-      const uint32_t Idx = (Y * Width) + X;
-      Pixels.at(Idx) = Color;
-      Distance++;
-    }
-
-    for (const auto Prop : Pixels) {
-      const uint32_t Rgb = PropertiesToRgb.at(Prop);
-      File.print("{} {} {}\n", (Rgb >> 16) & 0xff, (Rgb >> 8) & 0xff,
-                 (Rgb >> 0) & 0xff);
-    }
-
 #if 0
     for (auto It = Reverse_.cbegin(); It != Reverse_.cend(); It++) {
       const uint64_t Pa = It->first;
@@ -526,7 +505,253 @@ public:
     return true;
   }
 };
+#endif
 
+class PageTableIterator_t {
+  const kdmpparser::KernelDumpParser &DumpParser_;
+  uint64_t DirectoryAddress_ = 0;
+  const PteHardware_t *Pml4_ = nullptr;
+  const PteHardware_t *Pml4e_ = nullptr;
+
+  const PteHardware_t *Pdpt_ = nullptr;
+  const PteHardware_t *Pdpte_ = nullptr;
+
+  const PteHardware_t *Pd_ = nullptr;
+  const PteHardware_t *Pde_ = nullptr;
+
+  const PteHardware_t *Pt_ = nullptr;
+  const PteHardware_t *Pte_ = nullptr;
+
+  struct Entry_t {
+    PteHardware_t Pml4e;
+    uint64_t Pml4eAddress;
+
+    PteHardware_t Pdpte;
+    uint64_t PdpteAddress;
+
+    PteHardware_t Pde;
+    uint64_t PdeAddress;
+
+    PteHardware_t Pte;
+    uint64_t PteAddress;
+
+    uint64_t Pa;
+    uint64_t Va;
+    PageType_t Type;
+  };
+
+  static constexpr uint64_t NumberEntries = (Page::Size / sizeof(uint64_t));
+
+  static constexpr uint64_t IndexFromPxe(const PteHardware_t *Directory,
+                                         const PteHardware_t *Entry) {
+    return uint64_t(Entry - Directory);
+  }
+
+  static constexpr const PteHardware_t *Limit(const PteHardware_t *Directory) {
+    return Directory + NumberEntries;
+  }
+
+  static constexpr std::optional<const PteHardware_t *>
+  FindNextPresentEntry(const PteHardware_t *Directory,
+                       const PteHardware_t *Entry_ = nullptr) {
+    bool Found = false;
+    const PteHardware_t *Entry = Entry_ == nullptr ? Directory : Entry_;
+    while (Entry < Limit(Directory)) {
+      if (Entry->u.Present) {
+        Found = true;
+        break;
+      }
+      Entry++;
+    }
+
+    if (!Found) {
+      return std::nullopt;
+    }
+
+    return Entry;
+  }
+
+  Entry_t MakeEntry() const {
+    Entry_t Entry;
+    Entry.Pml4e = *Pml4e_;
+    Entry.Pml4eAddress = DirectoryAddress_ + uint64_t(Pml4e_ - Pml4_);
+
+    Entry.Pdpte = *Pdpte_;
+    Entry.PdpteAddress = Page::AddressFromPfn(Pml4e_->u.PageFrameNumber) +
+                         uint64_t(Pdpte_ - Pdpt_);
+
+    if (Pdpte_->u.LargePage) {
+      Entry.Pde = Entry.PdeAddress = 0;
+      Entry.Pte = Entry.PteAddress = 0;
+      Entry.Pa = Page::AddressFromPfn(Pdpte_->u.PageFrameNumber);
+      Entry.Va = VirtualAddress_t(IndexFromPxe(Pml4_, Pml4e_),
+                                  IndexFromPxe(Pdpt_, Pdpte_))
+                     .U64();
+      Entry.Type = PageType_t::Huge;
+      return Entry;
+    }
+
+    Entry.Pde = *Pde_;
+    Entry.PdeAddress =
+        Page::AddressFromPfn(Pdpte_->u.PageFrameNumber) + uint64_t(Pde_ - Pd_);
+
+    if (Pde_->u.LargePage) {
+      Entry.Pte = Entry.PteAddress = 0;
+      Entry.Pa = Page::AddressFromPfn(Pde_->u.PageFrameNumber);
+      Entry.Va =
+          VirtualAddress_t(IndexFromPxe(Pml4_, Pml4e_),
+                           IndexFromPxe(Pdpt_, Pdpte_), IndexFromPxe(Pd_, Pde_))
+              .U64();
+      Entry.Type = PageType_t::Large;
+      return Entry;
+    }
+
+    Entry.Pte = *Pte_;
+    Entry.PteAddress =
+        Page::AddressFromPfn(Pde_->u.PageFrameNumber) + uint64_t(Pte_ - Pt_);
+
+    Entry.Pa = Page::AddressFromPfn(Pte_->u.PageFrameNumber);
+    Entry.Va = VirtualAddress_t(
+                   IndexFromPxe(Pml4_, Pml4e_), IndexFromPxe(Pdpt_, Pdpte_),
+                   IndexFromPxe(Pd_, Pde_), IndexFromPxe(Pt_, Pte_))
+                   .U64();
+    Entry.Type = PageType_t::Normal;
+    return Entry;
+  }
+
+  void Reset() {
+    Pml4_ = (PteHardware_t *)DumpParser_.GetPhysicalPage(DirectoryAddress_);
+    Pml4e_ = Pml4_;
+  }
+
+public:
+  explicit PageTableIterator_t(const kdmpparser::KernelDumpParser &DumpParser,
+                               const uint64_t DirectoryAddress)
+      : DumpParser_(DumpParser), DirectoryAddress_(DirectoryAddress) {
+    Reset();
+  }
+
+  std::optional<Entry_t> Next() {
+
+    //
+    // First level.
+    //
+
+    for (; Pml4e_ < Limit(Pml4_); Pml4e_++) {
+      if (!Pml4e_->u.Present) {
+        continue;
+      }
+
+      const uint64_t PdptAddress =
+          Page::AddressFromPfn(Pml4e_->u.PageFrameNumber);
+
+      const auto OldPdpt = Pdpt_;
+      Pdpt_ = (PteHardware_t *)DumpParser_.GetPhysicalPage(PdptAddress);
+
+      if (Pdpt_ == nullptr) {
+        fmt::print("PDPT:{:#x} not available in the dump, bailing\n",
+                   PdptAddress);
+        continue;
+      }
+
+      if (OldPdpt != Pdpt_) {
+        Pdpte_ = Pdpt_;
+      }
+
+      //
+      // Second level.
+      //
+
+      for (; Pdpte_ < Limit(Pdpt_); Pdpte_++) {
+        if (!Pdpte_->u.Present) {
+          continue;
+        }
+
+        if (Pdpte_->u.LargePage) {
+
+          //
+          // Huge page (1GB).
+          //
+
+          Pd_ = Pde_ = Pt_ = Pte_ = nullptr;
+          const auto &Entry = MakeEntry();
+          Pdpte_++;
+          return Entry;
+        }
+
+        const uint64_t PdAddress =
+            Page::AddressFromPfn(Pdpte_->u.PageFrameNumber);
+
+        const auto OldPd = Pd_;
+        Pd_ = (PteHardware_t *)DumpParser_.GetPhysicalPage(PdAddress);
+
+        if (Pd_ == nullptr) {
+          fmt::print("PD:{:#x} not available in the dump, bailing\n",
+                     PdAddress);
+          continue;
+        }
+
+        if (OldPd != Pd_) {
+          Pde_ = Pd_;
+        }
+
+        //
+        // Third level.
+        //
+
+        for (; Pde_ < Limit(Pd_); Pde_++) {
+          if (!Pde_->u.Present) {
+            continue;
+          }
+
+          if (Pde_->u.LargePage) {
+
+            //
+            // Large page (2MB).
+            //
+
+            Pt_ = Pte_ = nullptr;
+            const auto &Entry = MakeEntry();
+            Pde_++;
+            return Entry;
+          }
+
+          const uint64_t PtAddress =
+              Page::AddressFromPfn(Pde_->u.PageFrameNumber);
+
+          const auto OldPt = Pt_;
+          Pt_ = (PteHardware_t *)DumpParser_.GetPhysicalPage(PtAddress);
+
+          if (Pt_ == nullptr) {
+            fmt::print("PT:{:#x} not available in the dump, skipping\n",
+                       PtAddress);
+            continue;
+          }
+
+          if (OldPt != Pt_) {
+            Pte_ = Pt_;
+          }
+
+          //
+          // Fourth level.
+          //
+
+          for (; Pte_ < Limit(Pt_); Pte_++) {
+            if (!Pte_->u.Present) {
+              continue;
+            }
+
+            const auto &Entry = MakeEntry();
+            Pte_++;
+            return Entry;
+          }
+        }
+      }
+    }
+
+    return std::nullopt;
+  }
+};
 } // namespace clairvoyance
 
 int main(int argc, char *argv[]) {
@@ -536,10 +761,94 @@ int main(int argc, char *argv[]) {
   }
 
   const fs::path DumpFile(argv[1]);
-  clairvoyance::DumpColor_t DumpColor;
-  if (!DumpColor.ComputePixels(DumpFile)) {
-    fmt::print("ComputePixels failed\n");
-    return 0;
+  kdmpparser::KernelDumpParser Parser;
+  if (!Parser.Parse(DumpFile.string().c_str())) {
+    fmt::print("Parse failed\n");
+    return false;
+  }
+
+  clairvoyance::PageTableIterator_t It(Parser, Parser.GetDirectoryTableBase());
+  std::vector<clairvoyance::Properties_t> Tape;
+  Tape.reserve(500'000);
+
+  uint64_t LastVa = 0;
+  while (1) {
+    const auto &Entry = It.Next();
+    if (!Entry) {
+      break;
+    }
+
+    if ((LastVa + clairvoyance::Page::Size) != Entry->Va) {
+
+      //
+      // We have a gap, split it in 2mb chunk of black pixels.
+      //
+
+      uint64_t N = 0;
+      constexpr uint64_t MaxGapEntries = 10'000;
+      for (uint64_t CurLastVa = LastVa;
+           (CurLastVa + clairvoyance::Page::Size) < Entry->Va;
+           CurLastVa += clairvoyance::Page::Size) {
+        Tape.emplace_back(clairvoyance::Properties_t::None);
+        N++;
+        if (N >= MaxGapEntries) {
+          fmt::print("Huge gap from {:x} to {:x}, skipping\n", LastVa,
+                     Entry->Va);
+          break;
+        }
+      }
+    }
+
+    const auto &Properties = clairvoyance::PropertiesFromPtes(
+        Entry->Pml4e, Entry->Pdpte, Entry->Pde, Entry->Pte);
+    const uint64_t NumberPixels = clairvoyance::GetNumberPixels(Entry->Type);
+    for (uint64_t Idx = 0; Idx < NumberPixels; Idx++) {
+      const uint64_t CurrentPa =
+          clairvoyance::Page::AddressFromPfn(Entry->Pa, Idx);
+      const uint64_t CurrentVa =
+          clairvoyance::Page::AddressFromPfn(Entry->Va, Idx);
+      LastVa = CurrentVa;
+
+      // fmt::print("VA:{:#x} ({}, {}) PA:{:#x}\n", CurrentVa,
+      //           PropertiesToString(Properties),
+      //           Entry->Type != clairvoyance::PageType_t::Normal ? ">4k" :
+      //           "4k", CurrentPa);
+      Tape.emplace_back(Properties);
+    }
+  }
+
+  const uint64_t Log2 = std::log2(float(Tape.size()));
+  const uint64_t Order = (Log2 / 2);
+  const uint64_t Height = Hilbert::Height(Order);
+  const uint64_t Width = Hilbert::Width(Order);
+
+  fmt::print("{} props have been materialized; will get layed out on hcurve "
+             "order {} ({} pixels)\n",
+             Tape.size(), Order, Width * Height);
+
+  auto File = fmt::output_file("vis.ppm");
+  File.print("P3\n{} {}\n255\n", Width, Height);
+
+  for (uint64_t Y = 0; Y < Height; Y++) {
+    for (uint64_t X = 0; X < Width; X++) {
+      const auto &Distance = Hilbert::DistanceFromCoordinates(X, Y, Order);
+      // const auto &[OX, OY] = Hilbert::CoordinatesFromDistance(Distance,
+      // Order); if (OX != X || OY != Y) {
+      //  fmt::print("^___ mismatch ({}/{} VS {}/{})\n", X, Y, OX, OY);
+      //  __debugbreak();
+      //}
+
+      const uint32_t Rgb =
+          (Distance < Tape.size())
+              ? clairvoyance::PropertiesToRgb.at(Tape[Distance])
+              : clairvoyance::color::White;
+      if (Rgb == 0xffffff) {
+        __debugbreak();
+      }
+      File.print("{} {} {}\n", (Rgb >> 16) & 0xff, (Rgb >> 8) & 0xff,
+                 (Rgb >> 0) & 0xff);
+    }
+    File.print("\n");
   }
 
   fmt::print("Done\n");
