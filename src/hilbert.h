@@ -2,7 +2,7 @@
 #pragma once
 #include <utility>
 
-namespace Hilbert {
+namespace hilbert {
 
 //
 // This is code that I stole from "Hacker's Delight" figure 16–8.
@@ -59,4 +59,4 @@ constexpr uint32_t NumberPoints(const uint64_t Order) {
   return W * H;
 }
 
-} // namespace Hilbert
+} // namespace hilbert
