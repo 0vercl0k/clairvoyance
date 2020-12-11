@@ -9,6 +9,11 @@
 namespace fs = std::filesystem;
 
 namespace clairvoyance {
+
+//
+// The palette of color used for the visualization.
+//
+
 namespace color {
 constexpr uint32_t White = 0xff'ff'ff;
 constexpr uint32_t Black = 0x00'00'00;
@@ -22,98 +27,165 @@ constexpr uint32_t Red = 0xfe'00'00;
 constexpr uint32_t LightRed = 0xff'7f'7f;
 }; // namespace color
 
-constexpr uint32_t PropertiesToRgb(const ptables::Properties_t &Prop) {
-  using enum ptables::Properties_t;
-  switch (Prop) {
-  case None:
-    return color::Black;
-  case UserRead:
-    return color::PaleGreen;
-  case UserReadExec:
-    return color::CanaryYellow;
-  case UserReadWrite:
-    return color::Mauve;
-  case UserReadWriteExec:
-    return color::LightRed;
-  case KernelRead:
-    return color::Green;
-  case KernelReadExec:
-    return color::Yellow;
-  case KernelReadWrite:
-    return color::Purple;
-  case KernelReadWriteExec:
-    return color::Red;
-  }
-
-  std::abort();
-}
-
-static constexpr uint64_t GetNumberPixels(const ptables::PageType_t PageType) {
-  using enum ptables::PageType_t;
-  switch (PageType) {
-  case Huge: {
-
-    //
-    // Huge pages are 1GB so we'll add the below number of pixels.
-    //
-
-    return (1024 * 1024 * 1024) / page::Size;
-  }
-
-  case Large: {
-
-    //
-    // Large pages are 2MB so we'll add the below number of pixels.
-    //
-
-    return (1024 * 1024 * 2) / page::Size;
-  }
-
-  case Normal: {
-
-    //
-    // This is a normal page, so we'll just materialize a single pixel.
-    //
-
-    return 1;
-  }
-  }
-
-  std::abort();
-}
+//
+// The visualizer is the class that generates the pictures. It reads the dump,
+// parses the page tables hierarchy and puts the address space onto a hilbert
+// curve.
+//
 
 class Visualizer_t {
+
+  //
+  // The tape is basically a succession of page table properties. This is used
+  // as distances on the curve.
+  //
+
   std::vector<ptables::Properties_t> Tape_;
-  uint64_t LastVa_ = 0;
+
+  //
+  // Kernel dump parser.
+  //
+
   kdmpparser::KernelDumpParser DumpParser_;
 
+  //
+  // Gets the associated color for specific page properties.
+  //
+
+  static constexpr uint32_t PropertiesToRgb(const ptables::Properties_t &Prop) {
+    using enum ptables::Properties_t;
+    switch (Prop) {
+    case None:
+      return color::Black;
+    case UserRead:
+      return color::PaleGreen;
+    case UserReadExec:
+      return color::CanaryYellow;
+    case UserReadWrite:
+      return color::Mauve;
+    case UserReadWriteExec:
+      return color::LightRed;
+    case KernelRead:
+      return color::Green;
+    case KernelReadExec:
+      return color::Yellow;
+    case KernelReadWrite:
+      return color::Purple;
+    case KernelReadWriteExec:
+      return color::Red;
+    }
+
+    std::abort();
+  }
+
+  //
+  // Gets the number of 4k pages that we need to draw on the curve for
+  // Huge/Large/Normal page.
+  //
+
+  static constexpr uint64_t
+  GetNumberPixels(const ptables::PageType_t PageType) {
+    using enum ptables::PageType_t;
+    switch (PageType) {
+    case Huge: {
+
+      //
+      // Huge pages are 1GB so we'll add the below number of pixels.
+      //
+
+      return (1024 * 1024 * 1024) / page::Size;
+    }
+
+    case Large: {
+
+      //
+      // Large pages are 2MB so we'll add the below number of pixels.
+      //
+
+      return (1024 * 1024 * 2) / page::Size;
+    }
+
+    case Normal: {
+
+      //
+      // This is a normal page, so we'll just materialize a single pixel.
+      //
+
+      return 1;
+    }
+    }
+
+    std::abort();
+  }
+
 public:
-  bool Render(const fs::path &DumpFile) {
+  //
+  // Parses and prepares the tape.
+  //
+
+  bool Parse(const fs::path &DumpFile) {
+
+    //
+    // Parse the dump file.
+    //
+
     if (!DumpParser_.Parse(DumpFile.string().c_str())) {
       fmt::print("Parse failed\n");
       return false;
     }
+
+    //
+    // Warn if there is a chance to not have the full page tables hierarchy in
+    // the dump.
+    //
 
     if (DumpParser_.GetDumpType() != kdmpparser::DumpType_t::FullDump) {
       fmt::print("/!\\ {} is not a full dump so some pages might be missing\n",
                  DumpFile.filename().string());
     }
 
+    //
+    // Initialize the page tables iterator with the current @cr3.
+    //
+
     ptables::PageTableIterator_t Iterator(DumpParser_,
                                           DumpParser_.GetDirectoryTableBase());
+
+    //
+    // Warm up the tape.
+    //
+
     Tape_.reserve(500'000);
+
+    //
+    // Let's go!
+    //
 
     uint64_t LastVa = 0;
     while (1) {
+
+      //
+      // Grab an entry from the iterator.
+      //
+
       const auto &Entry = Iterator.Next();
+
+      //
+      // If there's no entry, the page tables walk is done.
+      //
+
       if (!Entry) {
         break;
       }
 
+      //
+      // If we have a gap in the address space, we fill it up the best we can.
+      //
+
       if ((LastVa + page::Size) != Entry->Va) {
 
         //
-        // We have a gap, split it in 2mb chunk of black pixels.
+        // Fill the gap with at most 10k entries of black pixels.
         //
 
         uint64_t N = 0;
@@ -121,8 +193,12 @@ public:
         for (uint64_t CurLastVa = LastVa; (CurLastVa + page::Size) < Entry->Va;
              CurLastVa += page::Size) {
           Tape_.emplace_back(ptables::Properties_t::None);
-          N++;
-          if (N >= MaxGapEntries) {
+
+          //
+          // If we had enough consecutive entries, we break out of the loop.
+          //
+
+          if (N++ >= MaxGapEntries) {
             fmt::print("Huge gap from {:x} to {:x}, skipping\n", LastVa,
                        Entry->Va);
             break;
@@ -130,9 +206,23 @@ public:
         }
       }
 
+      //
+      // Calculate the page properties from the PML4E/PDPTE/PDE/PTE.
+      //
+
       const auto &Properties = ptables::PropertiesFromPtes(
           Entry->Pml4e, Entry->Pdpte, Entry->Pde, Entry->Pte);
+
+      //
+      // Grab the number of pixels that we need for this page.
+      //
+
       const uint64_t NumberPixels = GetNumberPixels(Entry->Type);
+
+      //
+      // Time to populate the tape.
+      //
+
       for (uint64_t Idx = 0; Idx < NumberPixels; Idx++) {
         const uint64_t CurrentPa = ptables::AddressFromPfn(Entry->Pa, Idx);
         const uint64_t CurrentVa = ptables::AddressFromPfn(Entry->Va, Idx);
@@ -146,9 +236,17 @@ public:
       }
     }
 
+    //
+    // We're done.
+    //
+
     fmt::print("Extracted {} properties from the dump file\n", Tape_.size());
     return true;
   }
+
+  //
+  // Write the tape on the disk with the PPM format.
+  //
 
   bool Write(const std::string_view &Filename) const {
     const uint64_t Log2 = std::log2(float(Tape_.size()));
@@ -185,17 +283,29 @@ int main(int argc, char *argv[]) {
     return 0;
   }
 
+  //
+  // Parse the dump and prepare the curve.
+  //
+
   const fs::path DumpFile(argv[1]);
   clairvoyance::Visualizer_t Visu;
-  if (!Visu.Render(DumpFile)) {
-    fmt::print("Render failed\n");
+  if (!Visu.Parse(DumpFile)) {
+    fmt::print("Parse failed\n");
     return 0;
   }
+
+  //
+  // Write the picture on disk.
+  //
 
   if (!Visu.Write("vis.ppm")) {
     fmt::print("Write failed\n");
     return 0;
   }
+
+  //
+  // Yay!
+  //
 
   fmt::print("Done\n");
   return 1;
