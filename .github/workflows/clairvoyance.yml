@@ -11,17 +11,18 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v2
 
-    - name: Install dependencies
-      run: |
-        sudo apt-get -y update
-        sudo apt install -y g++-multilib ninja-build
+    - name: Install c++ headers
+      run: sudo apt install -y g++-10 ninja-build
+
+    - name: Grab latest llvm
+      run: sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
 
     - name: Build
       run: |
         cmake --version
         cd build
         chmod u+x ./build-release.sh
-        CC=gcc-10 CXX=g++-10 ./build-release.sh
+        CC=clang-11 CXX=clang++-11 ./build-release.sh
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v2

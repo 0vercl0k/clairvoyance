@@ -451,12 +451,12 @@ constexpr Properties_t PropertiesFromPtes(const Pte_t Pml4e, const Pte_t Pdpte,
 
 #define CalculateBit(FieldName, Comp)                                          \
   [&]() {                                                                      \
-    bool FieldName = Comp(Pml4e.u.##FieldName, Pdpte.u.##FieldName);           \
+    bool FieldName = Comp(Pml4e.u.FieldName, Pdpte.u.FieldName);               \
     if (!Pdpte.u.LargePage) {                                                  \
-      FieldName = Comp(FieldName, Pde.u.##FieldName);                          \
+      FieldName = Comp(FieldName, Pde.u.FieldName);                            \
     }                                                                          \
     if (!Pde.u.LargePage) {                                                    \
-      FieldName = Comp(FieldName, Pte.u.##FieldName);                          \
+      FieldName = Comp(FieldName, Pte.u.FieldName);                            \
     }                                                                          \
     return FieldName;                                                          \
   }();
