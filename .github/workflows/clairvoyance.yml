@@ -19,7 +19,7 @@ jobs:
     - name: Build
       run: |
         cmake --version
-        cd src/build
+        cd build
         chmod u+x ./build-release.sh
         CC=gcc-10 CXX=g++-10 ./build-release.sh
 
@@ -41,7 +41,7 @@ jobs:
 
     - name: Build
       run: |
-        cd src\build
+        cd build
         .\build-release.bat
 
     - name: Upload artifacts
