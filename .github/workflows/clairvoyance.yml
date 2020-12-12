@@ -50,5 +50,5 @@ jobs:
       with:
         name: winx64-RelWithDebInfo
         path: |
-          build/RelWithDebInfo/clairvoyance.exe
-          build/RelWithDebInfo/clairvoyance.pdb
+          build/clairvoyance.exe
+          build/clairvoyance.pdb
