@@ -3,6 +3,8 @@
 
 Clairvoyance (/**klɛərˈvɔɪəns**/; from French clair meaning *clear* and voyance meaning *vision*) from [Wikipedia](https://en.wikipedia.org/wiki/Clairvoyance).
 
+![clairvoyance](pics/ida64_dmp-ph.png)
+
 ## Overview
 
 **clairvoyance** creates a colorful visualization of the page properties of an entire 64-bit process address space (user and kernel) running on a Windows 64-bit kernel.
