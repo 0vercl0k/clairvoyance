@@ -53,25 +53,29 @@ class Visualizer_t {
   //
 
   static constexpr uint32_t PropertiesToRgb(const ptables::Properties_t &Prop) {
-    using enum ptables::Properties_t;
+    //
+    // XXX: Use the below once clang & gcc supports it.
+    // using enum ptables::Properties_t;
+    //
+
     switch (Prop) {
-    case None:
+    case ptables::Properties_t::None:
       return color::Black;
-    case UserRead:
+    case ptables::Properties_t::UserRead:
       return color::PaleGreen;
-    case UserReadExec:
+    case ptables::Properties_t::UserReadExec:
       return color::CanaryYellow;
-    case UserReadWrite:
+    case ptables::Properties_t::UserReadWrite:
       return color::Mauve;
-    case UserReadWriteExec:
+    case ptables::Properties_t::UserReadWriteExec:
       return color::LightRed;
-    case KernelRead:
+    case ptables::Properties_t::KernelRead:
       return color::Green;
-    case KernelReadExec:
+    case ptables::Properties_t::KernelReadExec:
       return color::Yellow;
-    case KernelReadWrite:
+    case ptables::Properties_t::KernelReadWrite:
       return color::Purple;
-    case KernelReadWriteExec:
+    case ptables::Properties_t::KernelReadWriteExec:
       return color::Red;
     }
 
@@ -85,9 +89,13 @@ class Visualizer_t {
 
   static constexpr uint64_t
   GetNumberPixels(const ptables::PageType_t PageType) {
-    using enum ptables::PageType_t;
+    //
+    // XXX: Use the below once clang and gcc supports the feature.
+    // using enum ptables::PageType_t;
+    //
+
     switch (PageType) {
-    case Huge: {
+    case ptables::PageType_t::Huge: {
 
       //
       // Huge pages are 1GB so we'll add the below number of pixels.
@@ -96,7 +104,7 @@ class Visualizer_t {
       return (1024 * 1024 * 1024) / page::Size;
     }
 
-    case Large: {
+    case ptables::PageType_t::Large: {
 
       //
       // Large pages are 2MB so we'll add the below number of pixels.
@@ -105,7 +113,7 @@ class Visualizer_t {
       return (1024 * 1024 * 2) / page::Size;
     }
 
-    case Normal: {
+    case ptables::PageType_t::Normal: {
 
       //
       // This is a normal page, so we'll just materialize a single pixel.
