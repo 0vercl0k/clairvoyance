@@ -114,12 +114,6 @@ struct Va_t {
 static_assert(sizeof(Va_t) == 8);
 
 //
-// The various type of pages.
-//
-
-enum class PageType_t { Huge, Large, Normal };
-
-//
 // Get an absolute address from a PFN (with a base).
 //
 
@@ -129,6 +123,30 @@ static constexpr uint64_t AddressFromPfn(const uint64_t Pfn) {
 static constexpr uint64_t AddressFromPfn(const uint64_t Base,
                                          const uint64_t Pfn) {
   return Base + (Pfn * page::Size);
+}
+
+//
+// The various type of pages.
+//
+
+enum class PageType_t { Huge, Large, Normal };
+
+constexpr std::string_view ToString(const PageType_t &Type) {
+  //
+  // Use the below when gcc & clang supports it.
+  // using enum PageType_t;
+  //
+
+  switch (Type) {
+  case PageType_t::Huge:
+    return "Huge";
+  case PageType_t::Large:
+    return "Large";
+  case PageType_t::Normal:
+    return "Normal";
+  }
+
+  std::abort();
 }
 
 //
@@ -151,7 +169,7 @@ enum class Properties_t : uint8_t {
 // Properties to string.
 //
 
-constexpr std::string_view PropertiesToString(const Properties_t &Prop) {
+constexpr std::string_view ToString(const Properties_t &Prop) {
   //
   // Use the below when gcc & clang supports it.
   // using enum Properties_t;

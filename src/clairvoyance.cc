@@ -247,9 +247,7 @@ public:
 
         if (VerboseDumpMappings) {
           fmt::print("VA:{:#x} ({}, {}) PA:{:#x}\n", CurrentVa,
-                     PropertiesToString(Properties),
-                     Entry->Type != ptables::PageType_t::Normal ? ">4k" : "4k",
-                     CurrentPa);
+                     ToString(Properties), ToString(Entry->Type), CurrentPa);
         }
 
         //
