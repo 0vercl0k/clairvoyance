@@ -104,7 +104,7 @@ struct Va_t {
   constexpr void Pml4Index(const uint64_t Pml4Index) {
     u.u.Pml4Index = Pml4Index;
     if ((Pml4Index >> 8) & 1) {
-      u.u.Reserved = 0b11111111111111111;
+      u.u.Reserved = 0b1111111111111111;
     } else {
       u.u.Reserved = 0;
     }
@@ -413,25 +413,29 @@ enum class Properties_t : uint8_t {
 //
 
 constexpr std::string_view PropertiesToString(const Properties_t &Prop) {
-  using enum Properties_t;
+  //
+  // Use the below when gcc & clang supports it.
+  // using enum Properties_t;
+  //
+
   switch (Prop) {
-  case None:
+  case Properties_t::None:
     return "None";
-  case UserRead:
+  case Properties_t::UserRead:
     return "UserRead";
-  case UserReadExec:
+  case Properties_t::UserReadExec:
     return "UserReadExec";
-  case UserReadWrite:
+  case Properties_t::UserReadWrite:
     return "UserReadWrite";
-  case UserReadWriteExec:
+  case Properties_t::UserReadWriteExec:
     return "UserReadWriteExec";
-  case KernelRead:
+  case Properties_t::KernelRead:
     return "KernelRead";
-  case KernelReadExec:
+  case Properties_t::KernelReadExec:
     return "KernelReadExec";
-  case KernelReadWrite:
+  case Properties_t::KernelReadWrite:
     return "KernelReadWrite";
-  case KernelReadWriteExec:
+  case Properties_t::KernelReadWriteExec:
     return "KernelReadWriteExec";
   }
 
