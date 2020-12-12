@@ -321,6 +321,12 @@ class PageTableWalker_t {
 
   static constexpr uint64_t IndexFromPxe(const Pte_t *Directory,
                                          const Pte_t *Entry) {
+    //
+    // The reason why we don't do:
+    //   uintptr_t(Entry) & 0xfff
+    // is because those are not allowed in a constant expression.
+    //
+
     return uint64_t(Entry - Directory);
   }
 
@@ -330,7 +336,15 @@ class PageTableWalker_t {
 
   static constexpr uint64_t OffsetFromPxe(const Pte_t *Directory,
                                           const Pte_t *Entry) {
-    return uintptr_t(Entry) - uintptr_t(Directory);
+    //
+    // The reason why we don't do:
+    //   uintptr_t(Entry) - uintptr_t(Directory)
+    // Or:
+    //   uintptr_t(Entry) & 0xfff
+    // is because those are not allowed in a constant expression.
+    //
+
+    return uint64_t(Entry - Directory) * sizeof(Pte_t);
   }
 
   //
