@@ -3,7 +3,7 @@
 
 Clairvoyance (/**klɛərˈvɔɪəns**/; from French clair meaning *clear* and voyance meaning *vision*) from [Wikipedia](https://en.wikipedia.org/wiki/Clairvoyance).
 
-![clairvoyance](pics/ida64_dmp-ph.png)
+<center><img src='pics/ida64_dmp-ph.png' width=80%></center>
 
 ## Overview
 
