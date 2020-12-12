@@ -132,10 +132,60 @@ static constexpr uint64_t AddressFromPfn(const uint64_t Base,
 }
 
 //
+// Properties of a page.
+//
+
+enum class Properties_t : uint8_t {
+  None,
+  UserRead,
+  UserReadExec,
+  UserReadWrite,
+  UserReadWriteExec,
+  KernelRead,
+  KernelReadExec,
+  KernelReadWrite,
+  KernelReadWriteExec
+};
+
+//
+// Properties to string.
+//
+
+constexpr std::string_view PropertiesToString(const Properties_t &Prop) {
+  //
+  // Use the below when gcc & clang supports it.
+  // using enum Properties_t;
+  //
+
+  switch (Prop) {
+  case Properties_t::None:
+    return "None";
+  case Properties_t::UserRead:
+    return "UserRead";
+  case Properties_t::UserReadExec:
+    return "UserReadExec";
+  case Properties_t::UserReadWrite:
+    return "UserReadWrite";
+  case Properties_t::UserReadWriteExec:
+    return "UserReadWriteExec";
+  case Properties_t::KernelRead:
+    return "KernelRead";
+  case Properties_t::KernelReadExec:
+    return "KernelReadExec";
+  case Properties_t::KernelReadWrite:
+    return "KernelReadWrite";
+  case Properties_t::KernelReadWriteExec:
+    return "KernelReadWriteExec";
+  }
+
+  std::abort();
+}
+
+//
 // This walks a hierarchy of page tables using a dump parser.
 //
 
-class PageTableIterator_t {
+class PageTableWalker_t {
 
   //
   // Dump parser.
@@ -153,31 +203,88 @@ class PageTableIterator_t {
   // Current PML4/PDPT/PDE/PTE and their entries.
   //
 
-  const Pte_t *Pml4_ = nullptr;
-  const Pte_t *Pml4e_ = nullptr;
-  const Pte_t *Pdpt_ = nullptr;
-  const Pte_t *Pdpte_ = nullptr;
-  const Pte_t *Pd_ = nullptr;
-  const Pte_t *Pde_ = nullptr;
-  const Pte_t *Pt_ = nullptr;
-  const Pte_t *Pte_ = nullptr;
+  const Pte_t *Pml4_ = nullptr, *Pdpt_ = nullptr, *Pd_ = nullptr,
+              *Pt_ = nullptr;
+  const Pte_t *Pml4e_ = nullptr, *Pdpte_ = nullptr, *Pde_ = nullptr,
+              *Pte_ = nullptr;
 
   //
   // Structure that the walker returns.
   //
 
   struct Entry_t {
-    Pte_t Pml4e;
-    uint64_t Pml4eAddress;
-    Pte_t Pdpte;
-    uint64_t PdpteAddress;
-    Pte_t Pde;
-    uint64_t PdeAddress;
-    Pte_t Pte;
-    uint64_t PteAddress;
-    uint64_t Pa;
-    uint64_t Va;
-    PageType_t Type;
+    Pte_t Pml4e = 0;
+    uint64_t Pml4eAddress = 0;
+    Pte_t Pdpte = 0;
+    uint64_t PdpteAddress = 0;
+    Pte_t Pde = 0;
+    uint64_t PdeAddress = 0;
+    Pte_t Pte = 0;
+    uint64_t PteAddress = 0;
+    uint64_t Pa = 0;
+    uint64_t Va = 0;
+    PageType_t Type = PageType_t::Normal;
+
+    //
+    // Properties from PXEs.
+    //
+
+    constexpr Properties_t Properties() const {
+      //
+      // XXX: using enum Properties_t;
+      //
+
+      auto And = [](const bool A, const bool B) { return A && B; };
+      auto Or = [](const bool A, const bool B) { return A || B; };
+
+#define CalculateBit(FieldName, Comp)                                          \
+  [&]() {                                                                      \
+    bool FieldName = Comp(Pml4e.u.FieldName, Pdpte.u.FieldName);               \
+    if (!Pdpte.u.LargePage) {                                                  \
+      FieldName = Comp(FieldName, Pde.u.FieldName);                            \
+    }                                                                          \
+    if (!Pde.u.LargePage) {                                                    \
+      FieldName = Comp(FieldName, Pte.u.FieldName);                            \
+    }                                                                          \
+    return FieldName;                                                          \
+  }();
+
+      const bool UserAccessible = CalculateBit(UserAccessible, And);
+      const bool Write = CalculateBit(Write, And);
+      const bool NoExecute = CalculateBit(NoExecute, Or);
+
+      if (UserAccessible) {
+        if (Write) {
+          if (NoExecute) {
+            return Properties_t::UserReadWrite;
+          } else {
+            return Properties_t::UserReadWriteExec;
+          }
+        } else {
+          if (NoExecute) {
+            return Properties_t::UserRead;
+          } else {
+            return Properties_t::UserReadExec;
+          }
+        }
+      }
+
+      if (Write) {
+        if (NoExecute) {
+          return Properties_t::KernelReadWrite;
+        } else {
+          return Properties_t::KernelReadWriteExec;
+        }
+      } else {
+        if (NoExecute) {
+          return Properties_t::KernelRead;
+        } else {
+          return Properties_t::KernelReadExec;
+        }
+      }
+
+      std::abort();
+    }
   };
 
   //
@@ -266,8 +373,8 @@ public:
   // Ctor.
   //
 
-  explicit PageTableIterator_t(const kdmpparser::KernelDumpParser &DumpParser,
-                               const uint64_t DirectoryAddress)
+  explicit PageTableWalker_t(const kdmpparser::KernelDumpParser &DumpParser,
+                             const uint64_t DirectoryAddress)
       : DumpParser_(DumpParser), DirectoryAddress_(DirectoryAddress) {
     Reset();
   }
@@ -392,116 +499,4 @@ public:
   }
 };
 
-//
-// Properties of a page.
-//
-
-enum class Properties_t : uint8_t {
-  None,
-  UserRead,
-  UserReadExec,
-  UserReadWrite,
-  UserReadWriteExec,
-  KernelRead,
-  KernelReadExec,
-  KernelReadWrite,
-  KernelReadWriteExec
-};
-
-//
-// Properties to string.
-//
-
-constexpr std::string_view PropertiesToString(const Properties_t &Prop) {
-  //
-  // Use the below when gcc & clang supports it.
-  // using enum Properties_t;
-  //
-
-  switch (Prop) {
-  case Properties_t::None:
-    return "None";
-  case Properties_t::UserRead:
-    return "UserRead";
-  case Properties_t::UserReadExec:
-    return "UserReadExec";
-  case Properties_t::UserReadWrite:
-    return "UserReadWrite";
-  case Properties_t::UserReadWriteExec:
-    return "UserReadWriteExec";
-  case Properties_t::KernelRead:
-    return "KernelRead";
-  case Properties_t::KernelReadExec:
-    return "KernelReadExec";
-  case Properties_t::KernelReadWrite:
-    return "KernelReadWrite";
-  case Properties_t::KernelReadWriteExec:
-    return "KernelReadWriteExec";
-  }
-
-  std::abort();
-}
-
-//
-// Properties from PXEs.
-//
-
-constexpr Properties_t PropertiesFromPtes(const Pte_t Pml4e, const Pte_t Pdpte,
-                                          const Pte_t Pde = 0,
-                                          const Pte_t Pte = 0) {
-  //
-  // XXX: using enum Properties_t;
-  //
-
-  auto And = [](const bool A, const bool B) { return A && B; };
-  auto Or = [](const bool A, const bool B) { return A || B; };
-
-#define CalculateBit(FieldName, Comp)                                          \
-  [&]() {                                                                      \
-    bool FieldName = Comp(Pml4e.u.FieldName, Pdpte.u.FieldName);               \
-    if (!Pdpte.u.LargePage) {                                                  \
-      FieldName = Comp(FieldName, Pde.u.FieldName);                            \
-    }                                                                          \
-    if (!Pde.u.LargePage) {                                                    \
-      FieldName = Comp(FieldName, Pte.u.FieldName);                            \
-    }                                                                          \
-    return FieldName;                                                          \
-  }();
-
-  const bool UserAccessible = CalculateBit(UserAccessible, And);
-  const bool Write = CalculateBit(Write, And);
-  const bool NoExecute = CalculateBit(NoExecute, Or);
-
-  if (UserAccessible) {
-    if (Write) {
-      if (NoExecute) {
-        return Properties_t::UserReadWrite;
-      } else {
-        return Properties_t::UserReadWriteExec;
-      }
-    } else {
-      if (NoExecute) {
-        return Properties_t::UserRead;
-      } else {
-        return Properties_t::UserReadExec;
-      }
-    }
-  }
-
-  if (Write) {
-    if (NoExecute) {
-      return Properties_t::KernelReadWrite;
-    } else {
-      return Properties_t::KernelReadWriteExec;
-    }
-  } else {
-    if (NoExecute) {
-      return Properties_t::KernelRead;
-    } else {
-      return Properties_t::KernelReadExec;
-    }
-  }
-
-  std::abort();
-}
 } // namespace ptables

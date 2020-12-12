@@ -6,6 +6,12 @@
 #include <cmath>
 #include <filesystem>
 
+//
+// Turn this on to dump the VA mappings.
+//
+
+constexpr bool VerboseDumpMappings = true;
+
 namespace fs = std::filesystem;
 
 namespace clairvoyance {
@@ -156,8 +162,8 @@ public:
     // Initialize the page tables iterator with the current @cr3.
     //
 
-    ptables::PageTableIterator_t Iterator(DumpParser_,
-                                          DumpParser_.GetDirectoryTableBase());
+    const uint64_t DirectoryBase = DumpParser_.GetDirectoryTableBase();
+    ptables::PageTableWalker_t Walker(DumpParser_, DirectoryBase);
 
     //
     // Warm up the tape.
@@ -176,7 +182,7 @@ public:
       // Grab an entry from the iterator.
       //
 
-      const auto &Entry = Iterator.Next();
+      const auto &Entry = Walker.Next();
 
       //
       // If there's no entry, the page tables walk is done.
@@ -218,8 +224,7 @@ public:
       // Calculate the page properties from the PML4E/PDPTE/PDE/PTE.
       //
 
-      const auto &Properties = ptables::PropertiesFromPtes(
-          Entry->Pml4e, Entry->Pdpte, Entry->Pde, Entry->Pte);
+      const auto &Properties = Entry->Properties();
 
       //
       // Grab the number of pixels that we need for this page.
@@ -236,10 +241,21 @@ public:
         const uint64_t CurrentVa = ptables::AddressFromPfn(Entry->Va, Idx);
         LastVa = CurrentVa;
 
-        // fmt::print("VA:{:#x} ({}, {}) PA:{:#x}\n", CurrentVa,
-        //           PropertiesToString(Properties),
-        //           Entry->Type != clairvoyance::PageType_t::Normal ? ">4k" :
-        //           "4k", CurrentPa);
+        //
+        // Dump the mappings if the user want to.
+        //
+
+        if (VerboseDumpMappings) {
+          fmt::print("VA:{:#x} ({}, {}) PA:{:#x}\n", CurrentVa,
+                     PropertiesToString(Properties),
+                     Entry->Type != ptables::PageType_t::Normal ? ">4k" : "4k",
+                     CurrentPa);
+        }
+
+        //
+        // Emplace the properties.
+        //
+
         Tape_.emplace_back(Properties);
       }
     }
