@@ -449,7 +449,10 @@ constexpr std::string_view PropertiesToString(const Properties_t &Prop) {
 constexpr Properties_t PropertiesFromPtes(const Pte_t Pml4e, const Pte_t Pdpte,
                                           const Pte_t Pde = 0,
                                           const Pte_t Pte = 0) {
-  using enum Properties_t;
+  //
+  // XXX: using enum Properties_t;
+  //
+
   auto And = [](const bool A, const bool B) { return A && B; };
   auto Or = [](const bool A, const bool B) { return A || B; };
 
@@ -472,30 +475,30 @@ constexpr Properties_t PropertiesFromPtes(const Pte_t Pml4e, const Pte_t Pdpte,
   if (UserAccessible) {
     if (Write) {
       if (NoExecute) {
-        return UserReadWrite;
+        return Properties_t::UserReadWrite;
       } else {
-        return UserReadWriteExec;
+        return Properties_t::UserReadWriteExec;
       }
     } else {
       if (NoExecute) {
-        return UserRead;
+        return Properties_t::UserRead;
       } else {
-        return UserReadExec;
+        return Properties_t::UserReadExec;
       }
     }
   }
 
   if (Write) {
     if (NoExecute) {
-      return KernelReadWrite;
+      return Properties_t::KernelReadWrite;
     } else {
-      return KernelReadWriteExec;
+      return Properties_t::KernelReadWriteExec;
     }
   } else {
     if (NoExecute) {
-      return KernelRead;
+      return Properties_t::KernelRead;
     } else {
-      return KernelReadExec;
+      return Properties_t::KernelReadExec;
     }
   }
 
