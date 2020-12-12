@@ -246,8 +246,11 @@ public:
         //
 
         if (VerboseDumpMappings) {
-          fmt::print("VA:{:#x} ({}, {}) PA:{:#x}\n", CurrentVa,
-                     ToString(Properties), ToString(Entry->Type), CurrentPa);
+          fmt::print("VA:{:#x}, PA:{:#x} ({}, {}, PML4E:{:#x}, PDPTE:{:#x}, "
+                     "PDE:{:#x}, PTE:{:#x})\n",
+                     CurrentVa, CurrentPa, ToString(Properties),
+                     ToString(Entry->Type), Entry->Pml4eAddress,
+                     Entry->PdpteAddress, Entry->PdeAddress, Entry->PteAddress);
         }
 
         //
@@ -296,7 +299,6 @@ public:
     return true;
   }
 };
-
 } // namespace clairvoyance
 
 int main(int argc, char *argv[]) {

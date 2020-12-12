@@ -103,7 +103,7 @@ struct Va_t {
   constexpr uint64_t Pml4Index() const { return u.u.Pml4Index; }
   constexpr void Pml4Index(const uint64_t Pml4Index) {
     u.u.Pml4Index = Pml4Index;
-    if ((Pml4Index >> 8) & 1) {
+    if ((u.u.Pml4Index >> 8) & 1) {
       u.u.Reserved = 0b1111111111111111;
     } else {
       u.u.Reserved = 0;
@@ -129,7 +129,11 @@ static constexpr uint64_t AddressFromPfn(const uint64_t Base,
 // The various type of pages.
 //
 
-enum class PageType_t { Huge, Large, Normal };
+enum class PageType_t : uint8_t { Huge, Large, Normal };
+
+//
+// Page types to string.
+//
 
 constexpr std::string_view ToString(const PageType_t &Type) {
   //
@@ -321,6 +325,15 @@ class PageTableWalker_t {
   }
 
   //
+  // Gets the offsets between an entry and its directory.
+  //
+
+  static constexpr uint64_t OffsetFromPxe(const Pte_t *Directory,
+                                          const Pte_t *Entry) {
+    return uintptr_t(Entry) - uintptr_t(Directory);
+  }
+
+  //
   // Gets the limit address of a directory.
   //
 
@@ -334,45 +347,41 @@ class PageTableWalker_t {
 
   Entry_t MakeEntry() const {
     Entry_t Entry;
+    const uint64_t Pml4eIdx = IndexFromPxe(Pml4_, Pml4e_);
     Entry.Pml4e = *Pml4e_;
-    Entry.Pml4eAddress = DirectoryAddress_ + uint64_t(Pml4e_ - Pml4_);
+    Entry.Pml4eAddress = DirectoryAddress_ + OffsetFromPxe(Pml4_, Pml4e_);
 
+    const uint64_t PdpteIdx = IndexFromPxe(Pdpt_, Pdpte_);
     Entry.Pdpte = *Pdpte_;
-    Entry.PdpteAddress =
-        AddressFromPfn(Pml4e_->u.PageFrameNumber) + uint64_t(Pdpte_ - Pdpt_);
+    Entry.PdpteAddress = AddressFromPfn(Pml4e_->u.PageFrameNumber) +
+                         OffsetFromPxe(Pdpt_, Pdpte_);
 
     if (Pdpte_->u.LargePage) {
-      Entry.Pde = Entry.PdeAddress = 0;
-      Entry.Pte = Entry.PteAddress = 0;
       Entry.Pa = AddressFromPfn(Pdpte_->u.PageFrameNumber);
-      Entry.Va =
-          Va_t(IndexFromPxe(Pml4_, Pml4e_), IndexFromPxe(Pdpt_, Pdpte_)).U64();
+      Entry.Va = Va_t(Pml4eIdx, PdpteIdx).U64();
       Entry.Type = PageType_t::Huge;
       return Entry;
     }
 
+    const uint64_t PdeIdx = IndexFromPxe(Pd_, Pde_);
     Entry.Pde = *Pde_;
     Entry.PdeAddress =
-        AddressFromPfn(Pdpte_->u.PageFrameNumber) + uint64_t(Pde_ - Pd_);
+        AddressFromPfn(Pdpte_->u.PageFrameNumber) + OffsetFromPxe(Pd_, Pde_);
 
     if (Pde_->u.LargePage) {
-      Entry.Pte = Entry.PteAddress = 0;
       Entry.Pa = AddressFromPfn(Pde_->u.PageFrameNumber);
-      Entry.Va = Va_t(IndexFromPxe(Pml4_, Pml4e_), IndexFromPxe(Pdpt_, Pdpte_),
-                      IndexFromPxe(Pd_, Pde_))
-                     .U64();
+      Entry.Va = Va_t(Pml4eIdx, PdpteIdx, PdeIdx).U64();
       Entry.Type = PageType_t::Large;
       return Entry;
     }
 
+    const uint64_t PteIdx = IndexFromPxe(Pt_, Pte_);
     Entry.Pte = *Pte_;
     Entry.PteAddress =
-        AddressFromPfn(Pde_->u.PageFrameNumber) + uint64_t(Pte_ - Pt_);
+        AddressFromPfn(Pde_->u.PageFrameNumber) + OffsetFromPxe(Pt_, Pte_);
 
     Entry.Pa = AddressFromPfn(Pte_->u.PageFrameNumber);
-    Entry.Va = Va_t(IndexFromPxe(Pml4_, Pml4e_), IndexFromPxe(Pdpt_, Pdpte_),
-                    IndexFromPxe(Pd_, Pde_), IndexFromPxe(Pt_, Pte_))
-                   .U64();
+    Entry.Va = Va_t(Pml4eIdx, PdpteIdx, PdeIdx, PteIdx).U64();
     Entry.Type = PageType_t::Normal;
     return Entry;
   }
