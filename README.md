@@ -21,9 +21,17 @@ Compiled binaries are available in the [releases](https://github.com/0vercl0k/cl
 
 Shouts out to:
 - [Alexandru Radocea](https://twitter.com/defendtheworld) and [Georg Wicherski](https://twitter.com/ochsff) for the inspiration (see their BlackHat USA 2013 research: *[Visualizing Page Tables for Exploitation](https://media.blackhat.com/us-13/US-13-Wicherski-Hacking-like-in-the-Movies-Visualizing-Page-Tables-WP.pdf)*),
-- [The Hacker's delight second edition]()'s chapter 16 *Hilbert's curve* for providing the algorithms used in clairvoyance.
+- [The Hacker's delight second edition](https://www.amazon.com/Hackers-Delight-2nd-Henry-Warren/dp/0321842685)'s chapter 16 *Hilbert's curve* for providing the algorithms used in clairvoyance.
 
 ## Usage
+
+To generate the kernel crash dump it is recommended to use [WinDbg](https://docs.microsoft.com/en-us/windows-hardware/drivers/debugger/debugger-download-tools), [KDNet](https://docs.microsoft.com/en-us/windows-hardware/drivers/debugger/setting-up-a-network-debugging-connection-automatically) with the [.dump /f](https://docs.microsoft.com/en-us/windows-hardware/drivers/debugger/-dump--create-dump-file-) command.
+
+Once the dump has been acquired you can pass its path to clairvoyance as well as the physical address of the page directory you are interested in:
+
+```
+./clairvoyance <dump path> [<page dir pa>]
+```
 
 ## Build
 
