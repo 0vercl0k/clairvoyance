@@ -10,7 +10,7 @@
 // Turn this on to dump the VA mappings.
 //
 
-constexpr bool VerboseDumpMappings = true;
+constexpr bool VerboseDumpMappings = false;
 
 namespace fs = std::filesystem;
 
@@ -47,12 +47,6 @@ class Visualizer_t {
   //
 
   std::vector<ptables::Properties_t> Tape_;
-
-  //
-  // Kernel dump parser.
-  //
-
-  kdmpparser::KernelDumpParser DumpParser_;
 
   //
   // Gets the associated color for specific page properties.
@@ -137,39 +131,20 @@ public:
   // Parses and prepares the tape.
   //
 
-  bool Parse(const fs::path &DumpFile) {
+  bool Parse(const kdmpparser::KernelDumpParser &DumpParser,
+             const uint64_t DirectoryBase) {
 
     //
-    // Parse the dump file.
+    // Initialize the page tables walker.
     //
 
-    if (!DumpParser_.Parse(DumpFile.string().c_str())) {
-      fmt::print("Parse failed\n");
-      return false;
-    }
-
-    //
-    // Warn if there is a chance to not have the full page tables hierarchy in
-    // the dump.
-    //
-
-    if (DumpParser_.GetDumpType() != kdmpparser::DumpType_t::FullDump) {
-      fmt::print("/!\\ {} is not a full dump so some pages might be missing\n",
-                 DumpFile.filename().string());
-    }
-
-    //
-    // Initialize the page tables iterator with the current @cr3.
-    //
-
-    const uint64_t DirectoryBase = DumpParser_.GetDirectoryTableBase();
-    ptables::PageTableWalker_t Walker(DumpParser_, DirectoryBase);
+    ptables::PageTableWalker_t Walker(DumpParser, DirectoryBase);
 
     //
     // Warm up the tape.
     //
 
-    Tape_.reserve(500'000);
+    Tape_.reserve(1'500'000);
 
     //
     // Let's go!
@@ -273,7 +248,7 @@ public:
   // Write the tape on the disk with the PPM format.
   //
 
-  bool Write(const std::string_view &Filename) const {
+  bool Write(const fs::path &Filename) const {
     const uint64_t Log2 = std::log2(float(Tape_.size()));
     const uint64_t Order = (Log2 / 2);
     const uint64_t Height = hilbert::Height(Order);
@@ -282,7 +257,7 @@ public:
     fmt::print("Laying it out on an hilbert-curve order {} ({} total pixels)\n",
                Order, Width * Height);
 
-    auto File = fmt::output_file(Filename.data());
+    auto File = fmt::output_file(Filename.string());
     File.print("P3\n{} {}\n255\n", Width, Height);
     for (uint64_t Y = 0; Y < Height; Y++) {
       for (uint64_t X = 0; X < Width; X++) {
@@ -302,8 +277,51 @@ public:
 } // namespace clairvoyance
 
 int main(int argc, char *argv[]) {
-  if (argc != 2) {
-    fmt::print("./clairvoyance <dmp>\n");
+  if (argc < 2) {
+    fmt::print("./clairvoyance <dump path> [<page dir pa>]\n");
+    return 0;
+  }
+
+  //
+  // Parse the dump file.
+  //
+
+  const fs::path DumpFile(argv[1]);
+  kdmpparser::KernelDumpParser DumpParser;
+  if (!DumpParser.Parse(DumpFile.string().c_str())) {
+    fmt::print("Parse failed\n");
+    return false;
+  }
+
+  //
+  // Warn if there is a chance to not have the full page tables hierarchy in
+  // the dump.
+  //
+
+  if (DumpParser.GetDumpType() != kdmpparser::DumpType_t::FullDump) {
+    fmt::print("/!\\ {} is not a full dump so some pages might be missing\n",
+               DumpFile.string());
+  }
+
+  //
+  // Get the default @cr3 if one is not specified from the user.
+  //
+
+  const uint64_t DirectoryBase = [&]() {
+    if (argc == 3) {
+      return uint64_t(strtoull(argv[2], nullptr, 0));
+    }
+
+    return DumpParser.GetDirectoryTableBase();
+  }();
+
+  //
+  // Check that the PML4 at least exists.
+  //
+
+  if (DumpParser.GetPhysicalPage(DirectoryBase) == nullptr) {
+    fmt::print("The page directory {:#x} is not mapped in the dump file\n",
+               DirectoryBase);
     return 0;
   }
 
@@ -311,9 +329,8 @@ int main(int argc, char *argv[]) {
   // Parse the dump and prepare the curve.
   //
 
-  const fs::path DumpFile(argv[1]);
   clairvoyance::Visualizer_t Visu;
-  if (!Visu.Parse(DumpFile)) {
+  if (!Visu.Parse(DumpParser, DirectoryBase)) {
     fmt::print("Parse failed\n");
     return 0;
   }
@@ -322,7 +339,10 @@ int main(int argc, char *argv[]) {
   // Write the picture on disk.
   //
 
-  if (!Visu.Write("vis.ppm")) {
+  const auto &Filename =
+      fmt::format("{}-{:#x}.ppm", DumpFile.stem().string(), DirectoryBase);
+  const fs::path OutFile(fs::current_path() / Filename);
+  if (!Visu.Write(OutFile)) {
     fmt::print("Write failed\n");
     return 0;
   }
@@ -331,6 +351,6 @@ int main(int argc, char *argv[]) {
   // Yay!
   //
 
-  fmt::print("Done\n");
+  fmt::print("Done writing {}\n", Filename);
   return 1;
 }
