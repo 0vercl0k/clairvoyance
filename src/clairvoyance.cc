@@ -123,11 +123,10 @@ public:
     ptables::PageTableWalker_t Walker(DumpParser, DirectoryBase);
 
     //
-    // Warm up the tape and the segments.
+    // Warm up the tape.
     //
 
     Tape_.reserve(1'500'000);
-    // Index_.reserve(10'000);
 
     //
     // Let's go!

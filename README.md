@@ -21,7 +21,7 @@ Compiled binaries are available in the [releases](https://github.com/0vercl0k/cl
 
 Shouts out to:
 - [Alexandru Radocea](https://twitter.com/defendtheworld) and [Georg Wicherski](https://twitter.com/ochsff) for the inspiration (see their BlackHat USA 2013 research: *[Visualizing Page Tables for Exploitation](https://media.blackhat.com/us-13/US-13-Wicherski-Hacking-like-in-the-Movies-Visualizing-Page-Tables-WP.pdf)*),
-- [The Hacker's delight second edition](https://www.amazon.com/Hackers-Delight-2nd-Henry-Warren/dp/0321842685)'s chapter 16 *Hilbert's curve* for providing the algorithms used in clairvoyance.
+- [The Hacker's delight second edition](https://www.amazon.com/Hackers-Delight-2nd-Henry-Warren/dp/0321842685)'s chapter 16 *Hilbert's curve* for providing the algorithms used.
 
 ## Usage
 

@@ -151,28 +151,74 @@ class Clairvoyance_t {
         return Coord;
     }
 
+    //
+    // Parse a clairvoyance file.
+    //
+
     parseFile(Content) {
         const Lines = Content.split('\n');
-        const Split = Lines[0].split(' ');
-        this.Width_ = Number(Split[0]);
-        this.Height_ = Number(Split[1]);
-        this.Order_ = Math.log2(this.Width_);
+
+        //
+        // The header contains the width / height in pixels.
+        //
+
+        this.Width_, this.Height_ = Lines[0].split(' ').map(Number);
+
+        //
+        // Set the canvas' dimensions.
+        //
+
         this.Canvas_.width = this.Width_;
         this.Canvas_.height = this.Height_;
+
+        //
+        // Calculate the order of the curve.
+        //
+
+        this.Order_ = Math.log2(this.Width_);
         const ImgData = this.Ctx_.getImageData(0, 0, this.Width_, this.Height_);
         let Distance = 0;
-        let Va = 0n
+        
+        //
+        // Walk the lines; either it specifies the protection
+        // of a page, or it specifies the address of the current
+        // region.
+        //
+
         for(const Line of Lines.slice(1)) {
+
+          //
+          // If it starts with '0x', this is the address of the current
+          // region.
+          //
+
           if(Line.startsWith('0x')) {
+
+            //
+            // If we have a new region we keep track of its start.
+            //
+
             this.Regions_.push({
               Va: BigInt(Line),
               Start: BigInt(Distance),
             });
-            Va = BigInt(Line);
+
             continue;
           }
 
+          //
+          // The line is a page protection. In order to color the pixel,
+          // we need to calculate which pixel that is on the canvas using
+          // its distance.
+          //
+
           const Coord = this.d2xy(Distance);
+
+          //
+          // Once we have the coordinates, we can calculate its offset as well
+          // as its color.
+          //
+
           const Color = this.Palette_.get(Number(Line));
           const Offset = ((Coord.Y * this.Width_) + Coord.X) * 4;
           ImgData.data[Offset + 0] = Color.R;
@@ -180,13 +226,30 @@ class Clairvoyance_t {
           ImgData.data[Offset + 2] = Color.B;
           ImgData.data[Offset + 3] = 0xff;
           Distance++;
-          Va += 0x1000n;
+
+          //
+          // If the clairvoyance file specifies more pages that fit onto the
+          // curve, we bail.
+          // XXX: Technically here, I think we should create a second canvas
+          // to be able to represent the rest of the pixels. It could be shown
+          // to the user as a 'second' page like in a book for example.
+          //
+
           if(Distance == (this.Width_ * this.Height_)) {
             break;
           }
         }
 
+        //
+        // Update the canvas' content.
+        //
+
         this.Ctx_.putImageData(ImgData, 0, 0);
+
+        //
+        // Fix up its style and define the events we'll handle.
+        //
+
         this.Canvas_.style = 'border:1px solid #d3d3d3';
         this.Canvas_.onclick = Event => {
             this.highlightPixel(Event.offsetX, Event.offsetY, this.PixelClick_);
@@ -196,6 +259,10 @@ class Clairvoyance_t {
         //     this.highlightPixel(Event.offsetX, Event.offsetY, this.PixelMouseOver_);
         // };
     }
+
+    //
+    // Calculate the address from coordinates.
+    //
 
     addressFromCoord(X, Y) {
         const Distance = BigInt(this.xy2d(X, Y));
