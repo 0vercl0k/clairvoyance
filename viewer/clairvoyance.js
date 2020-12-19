@@ -1,11 +1,39 @@
 // Axel '0vercl0k' Souchet - December 18 2020
 class Clairvoyance_t {
-    constructor(Canvas) {
+    constructor(Canvas, Log) {
+
+        //
+        // The log DOM element is where we can show to the user
+        // the virtual-address and the coordinates.
+        //
+
+        this.Log_ = Log;
+
+        //
+        // The canvas is where we render the pixels.
+        //
+
         this.Canvas_ = Canvas;
         this.Ctx_ = this.Canvas_.getContext('2d');
+
+        //
+        // Width, Height of the canvas.
+        //
+
         this.Width_ = undefined;
         this.Height_ = undefined;
+
+        //
+        // Order of the Hilbert curve.
+        //
+
         this.Order_ = undefined;
+
+        //
+        // This stores the last pixel clicked; it allows us
+        // to restore its color when clicking somewhere else.
+        //
+
         this.PixelClick_ = {
             Offset: undefined,
             R: undefined,
@@ -19,6 +47,12 @@ class Clairvoyance_t {
                 A: 0xFF
             }
         };
+
+        //
+        // This stores the last pixel mouseover'd; it allows us
+        // to restore its original color when moving the mouse
+        // somewhere else.
+        //
 
         this.PixelMouseOver_ = {
             Offset: undefined,
@@ -34,30 +68,36 @@ class Clairvoyance_t {
             }
         };
 
-        this.Palette_ = new Map();
+        //
+        // Initialize the palette of colors; in order:
         // None, Black
-        this.Palette_.set(0, {R: 0, G: 0, B: 0});
         // UserRead, PaleGreen
-        this.Palette_.set(1, {R: 0xa9, G: 0xff, B: 0x52});
         // UserReadExec, CanaryYellow
-        this.Palette_.set(2, {R: 0xff, G: 0xff, B: 0x99});
         // UserReadWrite, Mauve,
-        this.Palette_.set(3, {R: 0xe0, G: 0xb0, B: 0xff});
         // UserReadWriteExec, LightRed
-        this.Palette_.set(4, {R: 0xff, G: 0x7f, B: 0x7f});
         // KernelRead, Green
-        this.Palette_.set(5, {R: 0x00, G: 0xff, B: 0x00});
         // KernelReadExec, Yellow
-        this.Palette_.set(6, {R: 0xff, G: 0xff, B: 0x00});
         // KernelReadWrite, Purple
-        this.Palette_.set(7, {R: 0xa0, G: 0x20, B: 0xf0});
         // KernelReadWriteExec, Red
+        //
+
+        this.Palette_ = new Map();
+        this.Palette_.set(0, {R: 0, G: 0, B: 0});
+        this.Palette_.set(1, {R: 0xa9, G: 0xff, B: 0x52});
+        this.Palette_.set(2, {R: 0xff, G: 0xff, B: 0x99});
+        this.Palette_.set(3, {R: 0xe0, G: 0xb0, B: 0xff});
+        this.Palette_.set(4, {R: 0xff, G: 0x7f, B: 0x7f});
+        this.Palette_.set(5, {R: 0x00, G: 0xff, B: 0x00});
+        this.Palette_.set(6, {R: 0xff, G: 0xff, B: 0x00});
+        this.Palette_.set(7, {R: 0xa0, G: 0x20, B: 0xf0});
         this.Palette_.set(8, {R: 0xfe, G: 0x00, B: 0x00});
+
         this.Regions_ = [];
     }
 
     //
     // This is code that I stole from "Hacker's Delight" figure 16–8.
+    // Calculate the distance from a set of (X, Y) coordinate.
     //
 
     xy2d(X_, Y_) {
@@ -78,6 +118,7 @@ class Clairvoyance_t {
 
     //
     // This is code that I stole from "Hacker's Delight" figure 16–8.
+    // Calculate (X, Y) coordinates from a distance.
     //
 
     d2xy(Dist) {
@@ -151,9 +192,9 @@ class Clairvoyance_t {
             this.highlightPixel(Event.offsetX, Event.offsetY, this.PixelClick_);
         };
 
-        this.Canvas_.onmousemove = Event => {
-            this.highlightPixel(Event.offsetX, Event.offsetY, this.PixelMouseOver_);
-        };
+        // this.Canvas_.onmousemove = Event => {
+        //     this.highlightPixel(Event.offsetX, Event.offsetY, this.PixelMouseOver_);
+        // };
     }
 
     addressFromCoord(X, Y) {
@@ -169,13 +210,31 @@ class Clairvoyance_t {
         return undefined;
     }
 
+    //
+    // Highlight a pixel on the canvas with a specific color.
+    //
+
     highlightPixel(X, Y, Pixel) {
+
+        //
+        // Calculate the virtual address at this point.
+        //
+
         const Va = this.addressFromCoord(X, Y);
         if(Va == undefined) {
-            throw `Region not found`;
+            throw `addressFromCoord failed`;
         }
 
+        //
+        // Get the canvas' content.
+        //
+
         const ImgData = this.Ctx_.getImageData(0, 0, this.Width_, this.Height_);
+
+        //
+        // Calculate the offset of the pixel.
+        //
+
         const Offset = ((Y * this.Width_) + X) * 4;
 
         //
@@ -205,7 +264,17 @@ class Clairvoyance_t {
         ImgData.data[Offset + 1] = Pixel.Color.G;
         ImgData.data[Offset + 2] = Pixel.Color.B;
         ImgData.data[Offset + 3] = Pixel.Color.A;
+
+        //
+        // Update the canvas' content.
+        //
+
         this.Ctx_.putImageData(ImgData, 0, 0);
-        document.getElementById('text').innerText = `VA=${Va.toString(16)} (d=${this.xy2d(X, Y)} x=${X}, y=${Y})`;
+
+        //
+        // Refresh the text log.
+        //
+
+        this.Log_.innerText = `VA=${Va.toString(16)} (d=${this.xy2d(X, Y)} x=${X}, y=${Y})`;
     }
 };

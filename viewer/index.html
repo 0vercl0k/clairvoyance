@@ -5,12 +5,18 @@
   <title>Clairvoyance visualizer</title>
   <script type='text/javascript' src='./clairvoyance.js'></script>
   <script>
+
+    //
+    // Read a clairvoyance file.
+    //
+
     function read(Input) {
       const File = Input.files[0];
       const Reader = new FileReader();
       Reader.onload = () => {
         const Canvas = document.getElementById('canvas');
-        const Clairvoyance = new Clairvoyance_t(Canvas);
+        const Log = document.getElementById('text');
+        const Clairvoyance = new Clairvoyance_t(Canvas, Log);
         return Clairvoyance.parseFile(Reader.result);
       };
 
