@@ -170,6 +170,13 @@ public:
         uint64_t N = 0;
         constexpr uint64_t MaxGapEntries = 10'000;
         bool Gap = false;
+
+        //
+        // If we haven't added anything to the tape, it means the address space
+        // starts with a gap. So it means that the first page is a gap and as a
+        // result we should not increase the last virtual address.
+        //
+
         if (Tape_.size() > 0) {
           LastVa += page::Size;
         }
