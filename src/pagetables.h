@@ -157,7 +157,7 @@ constexpr std::string_view ToString(const PageType_t &Type) {
 // Properties of a page.
 //
 
-enum class Properties_t : uint8_t {
+enum class Protection_t : uint8_t {
   None,
   UserRead,
   UserReadExec,
@@ -173,30 +173,30 @@ enum class Properties_t : uint8_t {
 // Properties to string.
 //
 
-constexpr std::string_view ToString(const Properties_t &Prop) {
+constexpr std::string_view ToString(const Protection_t &Prop) {
   //
   // Use the below when gcc & clang supports it.
   // using enum Properties_t;
   //
 
   switch (Prop) {
-  case Properties_t::None:
+  case Protection_t::None:
     return "None";
-  case Properties_t::UserRead:
+  case Protection_t::UserRead:
     return "UserRead";
-  case Properties_t::UserReadExec:
+  case Protection_t::UserReadExec:
     return "UserReadExec";
-  case Properties_t::UserReadWrite:
+  case Protection_t::UserReadWrite:
     return "UserReadWrite";
-  case Properties_t::UserReadWriteExec:
+  case Protection_t::UserReadWriteExec:
     return "UserReadWriteExec";
-  case Properties_t::KernelRead:
+  case Protection_t::KernelRead:
     return "KernelRead";
-  case Properties_t::KernelReadExec:
+  case Protection_t::KernelReadExec:
     return "KernelReadExec";
-  case Properties_t::KernelReadWrite:
+  case Protection_t::KernelReadWrite:
     return "KernelReadWrite";
-  case Properties_t::KernelReadWriteExec:
+  case Protection_t::KernelReadWriteExec:
     return "KernelReadWriteExec";
   }
 
@@ -248,10 +248,10 @@ class PageTableWalker_t {
     PageType_t Type = PageType_t::Normal;
 
     //
-    // Properties from PXEs.
+    // Protections from PXEs.
     //
 
-    constexpr Properties_t Properties() const {
+    constexpr Protection_t Protection() const {
       //
       // XXX: using enum Properties_t;
       //
@@ -278,30 +278,30 @@ class PageTableWalker_t {
       if (UserAccessible) {
         if (Write) {
           if (NoExecute) {
-            return Properties_t::UserReadWrite;
+            return Protection_t::UserReadWrite;
           } else {
-            return Properties_t::UserReadWriteExec;
+            return Protection_t::UserReadWriteExec;
           }
         } else {
           if (NoExecute) {
-            return Properties_t::UserRead;
+            return Protection_t::UserRead;
           } else {
-            return Properties_t::UserReadExec;
+            return Protection_t::UserReadExec;
           }
         }
       }
 
       if (Write) {
         if (NoExecute) {
-          return Properties_t::KernelReadWrite;
+          return Protection_t::KernelReadWrite;
         } else {
-          return Properties_t::KernelReadWriteExec;
+          return Protection_t::KernelReadWriteExec;
         }
       } else {
         if (NoExecute) {
-          return Properties_t::KernelRead;
+          return Protection_t::KernelRead;
         } else {
-          return Properties_t::KernelReadExec;
+          return Protection_t::KernelReadExec;
         }
       }
 

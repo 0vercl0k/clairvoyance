@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<!-- Axel '0vercl0k' Souchet - December 16 2020 -->
+<html>
+<head>
+  <title>Clairvoyance visualizer</title>
+  <script type='text/javascript' src='./clairvoyance.js'></script>
+  <script>
+    function read(Input) {
+      const File = Input.files[0];
+      const Reader = new FileReader();
+      Reader.onload = () => {
+        const Canvas = document.getElementById('canvas');
+        const Clairvoyance = new Clairvoyance_t(Canvas);
+        return Clairvoyance.parseFile(Reader.result);
+      };
+
+      Reader.onerror = () => {
+        console.log(Reader.error);
+      };
+
+      Reader.readAsText(File);
+    }
+  </script>
+</head>
+<body style='background-color: black;'>
+  <input type='file' onchange='read(this)' value='Upload a file'>
+  <div>
+    <canvas id='canvas' width=0 height=0></canvas>
+    <div id='text' style="font-family: 'Courier New', Courier, monospace; color: white;"></div>
+  </div>
+</body>
+</html>

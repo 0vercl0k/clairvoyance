@@ -1,16 +1,21 @@
 // Axel '0vercl0k' Souchet - December 1 2020
 #include "fmt/format.h"
 #include "fmt/os.h"
-#include "hilbert.h"
 #include "pagetables.h"
 #include <cmath>
 #include <filesystem>
 
 //
+// Turn this on to dump the gap mappings.
+//
+
+constexpr bool VerboseDumpGapMappings = true;
+
+//
 // Turn this on to dump the VA mappings.
 //
 
-constexpr bool VerboseDumpMappings = false;
+constexpr bool VerboseDumpMappings = true;
 
 namespace fs = std::filesystem;
 
@@ -41,46 +46,23 @@ constexpr uint32_t LightRed = 0xff'7f'7f;
 
 class Visualizer_t {
 
+  struct Region_t {
+    uint64_t Va = 0;
+    uint64_t EndIdx = 0;
+  };
+
   //
   // The tape is basically a succession of page table properties. This is used
   // as distances on the curve.
   //
 
-  std::vector<ptables::Properties_t> Tape_;
+  std::vector<ptables::Protection_t> Tape_;
 
   //
-  // Gets the associated color for specific page properties.
+  // Keep track of contiguous regions of memory.
   //
 
-  static constexpr uint32_t PropertiesToRgb(const ptables::Properties_t &Prop) {
-    //
-    // XXX: Use the below once clang & gcc supports it.
-    // using enum ptables::Properties_t;
-    //
-
-    switch (Prop) {
-    case ptables::Properties_t::None:
-      return color::Black;
-    case ptables::Properties_t::UserRead:
-      return color::PaleGreen;
-    case ptables::Properties_t::UserReadExec:
-      return color::CanaryYellow;
-    case ptables::Properties_t::UserReadWrite:
-      return color::Mauve;
-    case ptables::Properties_t::UserReadWriteExec:
-      return color::LightRed;
-    case ptables::Properties_t::KernelRead:
-      return color::Green;
-    case ptables::Properties_t::KernelReadExec:
-      return color::Yellow;
-    case ptables::Properties_t::KernelReadWrite:
-      return color::Purple;
-    case ptables::Properties_t::KernelReadWriteExec:
-      return color::Red;
-    }
-
-    std::abort();
-  }
+  std::vector<Region_t> Regions_;
 
   //
   // Gets the number of 4k pages that we need to draw on the curve for
@@ -141,16 +123,18 @@ public:
     ptables::PageTableWalker_t Walker(DumpParser, DirectoryBase);
 
     //
-    // Warm up the tape.
+    // Warm up the tape and the segments.
     //
 
     Tape_.reserve(1'500'000);
+    // Index_.reserve(10'000);
 
     //
     // Let's go!
     //
 
     uint64_t LastVa = 0;
+    Region_t Region;
     while (1) {
 
       //
@@ -164,6 +148,13 @@ public:
       //
 
       if (!Entry) {
+
+        //
+        // When we're done, complete the segment.
+        //
+
+        Region.EndIdx = Tape_.size() - 1;
+        Regions_.emplace_back(Region);
         break;
       }
 
@@ -179,27 +170,57 @@ public:
 
         uint64_t N = 0;
         constexpr uint64_t MaxGapEntries = 10'000;
-        for (uint64_t CurLastVa = LastVa; (CurLastVa + page::Size) < Entry->Va;
-             CurLastVa += page::Size) {
-          Tape_.emplace_back(ptables::Properties_t::None);
+        bool Gap = false;
+        if (Tape_.size() > 0) {
+          LastVa += page::Size;
+        }
+
+        for (; LastVa != Entry->Va; LastVa += page::Size) {
+          if constexpr (VerboseDumpGapMappings) {
+            fmt::print("VA:{:#x} (Gap, Dist:{})\n", LastVa, Tape_.size());
+          }
+
+          Tape_.emplace_back(ptables::Protection_t::None);
 
           //
-          // If we had enough consecutive entries, we break out of the loop.
+          // If we exhausted the number of allowed consecutive entries, we break
+          // out of the loop.
           //
 
           if (N++ >= MaxGapEntries) {
-            fmt::print("Huge gap from {:x} to {:x}, skipping\n", LastVa,
-                       Entry->Va);
+            if constexpr (VerboseDumpMappings) {
+              fmt::print("Huge gap from {:x} to {:x}, skipping\n", LastVa,
+                         Entry->Va);
+            }
+
+            Gap = true;
             break;
           }
+        }
+
+        if (Gap) {
+
+          //
+          // If we have a gap, close the current segment and start
+          // a new one.
+          //
+
+          Region.EndIdx = Tape_.size();
+          Regions_.emplace_back(Region);
+
+          //
+          // Start a new one.
+          //
+
+          Region.Va = Entry->Va;
         }
       }
 
       //
-      // Calculate the page properties from the PML4E/PDPTE/PDE/PTE.
+      // Calculate the page protection from the PML4E/PDPTE/PDE/PTE.
       //
 
-      const auto &Properties = Entry->Properties();
+      const auto &Protection = Entry->Protection();
 
       //
       // Grab the number of pixels that we need for this page.
@@ -222,17 +243,18 @@ public:
 
         if (VerboseDumpMappings) {
           fmt::print("VA:{:#x}, PA:{:#x} ({}, {}, PML4E:{:#x}, PDPTE:{:#x}, "
-                     "PDE:{:#x}, PTE:{:#x})\n",
-                     CurrentVa, CurrentPa, ToString(Properties),
+                     "PDE:{:#x}, PTE:{:#x}, Dist:{})\n",
+                     CurrentVa, CurrentPa, ToString(Protection),
                      ToString(Entry->Type), Entry->Pml4eAddress,
-                     Entry->PdpteAddress, Entry->PdeAddress, Entry->PteAddress);
+                     Entry->PdpteAddress, Entry->PdeAddress, Entry->PteAddress,
+                     Tape_.size());
         }
 
         //
         // Emplace the properties.
         //
 
-        Tape_.emplace_back(Properties);
+        Tape_.emplace_back(Protection);
       }
     }
 
@@ -240,7 +262,9 @@ public:
     // We're done.
     //
 
-    fmt::print("Extracted {} properties from the dump file\n", Tape_.size());
+    fmt::print("Extracted {} properties from the dump and {} contiguous "
+               "regions\n",
+               Tape_.size(), Regions_.size());
     return true;
   }
 
@@ -251,24 +275,19 @@ public:
   bool Write(const fs::path &Filename) const {
     const uint64_t Log2 = std::log2(float(Tape_.size()));
     const uint64_t Order = (Log2 / 2);
-    const uint64_t Height = hilbert::Height(Order);
-    const uint64_t Width = hilbert::Width(Order);
-
+    const uint64_t Width = uint64_t(1) << Order;
+    const uint64_t Height = Width;
     fmt::print("Laying it out on an hilbert-curve order {} ({} total pixels)\n",
                Order, Width * Height);
 
     auto File = fmt::output_file(Filename.string());
-    File.print("P3\n{} {}\n255\n", Width, Height);
-    for (uint64_t Y = 0; Y < Height; Y++) {
-      for (uint64_t X = 0; X < Width; X++) {
-        const auto &Distance = hilbert::DistanceFromCoordinates(X, Y, Order);
-        const uint32_t Rgb = (Distance < Tape_.size())
-                                 ? PropertiesToRgb(Tape_[Distance])
-                                 : color::White;
-        File.print("{} {} {}\n", (Rgb >> 16) & 0xff, (Rgb >> 8) & 0xff,
-                   (Rgb >> 0) & 0xff);
+    File.print("{} {}\n", Width, Height);
+    uint64_t Idx = 0;
+    for (const auto &Region : Regions_) {
+      File.print("{:#x}\n", Region.Va);
+      for (; Idx != Region.EndIdx; Idx++) {
+        File.print("{:x}\n", Tape_[Idx]);
       }
-      File.print("\n");
     }
 
     return true;
@@ -339,8 +358,8 @@ int main(int argc, char *argv[]) {
   // Write the picture on disk.
   //
 
-  const auto &Filename =
-      fmt::format("{}-{:#x}.ppm", DumpFile.stem().string(), DirectoryBase);
+  const auto &Filename = fmt::format("{}-{:#x}.clairvoyance",
+                                     DumpFile.stem().string(), DirectoryBase);
   const fs::path OutFile(fs::current_path() / Filename);
   if (!Visu.Write(OutFile)) {
     fmt::print("Write failed\n");
