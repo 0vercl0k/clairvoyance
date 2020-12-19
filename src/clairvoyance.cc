@@ -9,13 +9,13 @@
 // Turn this on to dump the gap mappings.
 //
 
-constexpr bool VerboseDumpGapMappings = true;
+constexpr bool VerboseDumpGapMappings = false;
 
 //
 // Turn this on to dump the VA mappings.
 //
 
-constexpr bool VerboseDumpMappings = true;
+constexpr bool VerboseDumpMappings = false;
 
 namespace fs = std::filesystem;
 
