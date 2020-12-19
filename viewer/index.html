@@ -3,6 +3,7 @@
 <html>
 <head>
   <title>Clairvoyance visualizer: virtual address space exploration</title>
+  <script type='text/javascript' src='https://unpkg.com/panzoom@9.4.0/dist/panzoom.min.js'></script>
   <script type='text/javascript' src='./clairvoyance.js'></script>
   <script>
 
@@ -15,8 +16,10 @@
       const Reader = new FileReader();
       Reader.onload = () => {
         const Canvas = document.getElementById('canvas');
-        const Log = document.getElementById('text');
-        const Clairvoyance = new Clairvoyance_t(Canvas, Log);
+        panzoom(Canvas);
+        const ClickLog = document.getElementById('clicked');
+        const MouseLog = document.getElementById('mouseover');
+        const Clairvoyance = new Clairvoyance_t(Canvas, ClickLog, MouseLog);
         return Clairvoyance.parseFile(Reader.result);
       };
 
@@ -35,7 +38,8 @@
       <canvas id='canvas' width=0 height=0>
         Your browser does not support the HTML 5 Canvas.
       </canvas>
-      <div id='text' style="font-family: 'Courier New', Courier, monospace; color: white;"></div>
+      <div id='clicked' style="font-family: 'Courier New', Courier, monospace; color: white;">Last clicked virtual address</div>
+      <div id='mouseover' style="font-family: 'Courier New', Courier, monospace; color: white;">Last mouse-over'd virtual address</div>
     </div>
   </center>
 </body>
