@@ -3,7 +3,7 @@
 <html>
 <head>
   <title>Clairvoyance visualizer: virtual address space exploration</title>
-  <script type='text/javascript' src='https://unpkg.com/panzoom@9.4.0/dist/panzoom.min.js'></script>
+  <script type='text/javascript' src='https://timmywil.com/panzoom/demo/panzoom.js'></script>
   <script type='text/javascript' src='./clairvoyance.js'></script>
   <script>
 
@@ -16,11 +16,22 @@
       const Reader = new FileReader();
       Reader.onload = () => {
         const Canvas = document.getElementById('canvas');
-        panzoom(Canvas);
         const ClickLog = document.getElementById('clicked');
         const MouseLog = document.getElementById('mouseover');
         const Clairvoyance = new Clairvoyance_t(Canvas, ClickLog, MouseLog);
-        return Clairvoyance.parseFile(Reader.result);
+        const [Width, Height] = Clairvoyance.parseFile(Reader.result);     
+        const Zoom = Panzoom(Canvas, {
+          maxScale: 7,
+          cursor: ''
+         });
+
+        Canvas.addEventListener('wheel', Event => {
+          if (!Event.ctrlKey) {
+            return;
+          }
+
+          Zoom.zoomWithWheel(Event);
+        });
       };
 
       Reader.onerror = () => {
@@ -31,15 +42,15 @@
     }
   </script>
 </head>
-<body style='background-color: black;'>
+<body style='background-color: black; width: 100vw; height: 100vh; margin: 0'>
   <input type='file' onchange='read(this)' value='Upload a file'>
   <center>
-    <div>
-      <canvas id='canvas' width=0 height=0>
+    <div id='clicked' style="font-weight: bolder; font-family: 'Courier New', Courier, monospace; color: white;">Last clicked: None!</div>
+    <div id='mouseover' style="font-weight: bolder; font-family: 'Courier New', Courier, monospace; color: white;">0000000000000000</div>
+    <div id='container'>
+      <canvas id='canvas' width=0 height=0 style='image-rendering: pixelated;'>
         Your browser does not support the HTML 5 Canvas.
       </canvas>
-      <div id='clicked' style="font-family: 'Courier New', Courier, monospace; color: white;">Last clicked virtual address</div>
-      <div id='mouseover' style="font-family: 'Courier New', Courier, monospace; color: white;">Last mouse-over'd virtual address</div>
     </div>
   </center>
 </body>

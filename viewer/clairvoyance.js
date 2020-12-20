@@ -288,23 +288,23 @@ class Clairvoyance_t {
         this.Ctx_.putImageData(ImgData, 0, 0);
 
         //
-        // Fix up its style and define the events we'll handle.
+        // Define the events we'll handle.
         //
 
-        this.Canvas_.style = 'image-rendering: pixelated';
-        this.Canvas_.onclick = Event=>{
+        this.Canvas_.onclick = async Event => {
             const X = Event.offsetX;
             const Y = Event.offsetY;
-            this.click(X, Y);
-        }
-        ;
+            const Va = this.click(X, Y);
+            await navigator.clipboard.writeText(`${Va.toString(16)}`);
+        };
 
-        this.Canvas_.onmousemove = Event=>{
+        this.Canvas_.onmousemove = Event => {
             const X = Event.offsetX;
             const Y = Event.offsetY;
             this.mouseMove(X, Y);
-        }
-        ;
+        };
+
+        return [this.Width_, this.Height_];
     }
 
     //
@@ -420,7 +420,8 @@ class Clairvoyance_t {
         // Refresh the text log.
         //
 
-        this.ClickLog_.innerText = `${Va.toString(16)}`;
+        this.ClickLog_.innerText = `Last clicked: ${Va.toString(16)}`;
+        return Va;
     }
 
     //
