@@ -38,18 +38,8 @@ class Clairvoyance_t {
         this.PixelClick_ = {
             X: undefined,
             Y: undefined,
-            Color: {
-                R: undefined,
-                G: undefined,
-                B: undefined,
-                A: undefined
-            },
-            HiColor: {
-                R: 0x08,
-                G: 0x25,
-                B: 0x67,
-                A: 0xFF
-            }
+            Color: undefined,
+            HiColor: 0x082567
         };
 
         //
@@ -61,79 +51,53 @@ class Clairvoyance_t {
         this.PixelMouseOver_ = {
             X: undefined,
             Y: undefined,
-            Color: {
-                R: undefined,
-                G: undefined,
-                B: undefined,
-                A: undefined
-            },
-            HiColor: {
-                R: 0xFF,
-                G: 0xFF,
-                B: 0xFF,
-                A: 0xFF
-            }
+            Color: undefined,
+            HiColor: 0xFFFFFF,
         };
 
         //
-        // Initialize the palette of colors; in order:
-        // None, Black
-        // UserRead, PaleGreen
-        // UserReadExec, CanaryYellow
-        // UserReadWrite, Mauve,
-        // UserReadWriteExec, LightRed
-        // KernelRead, Green
-        // KernelReadExec, Yellow
-        // KernelReadWrite, Purple
-        // KernelReadWriteExec, Red
+        // Initialize the palette variables.
+        //
+
+        //
+        // This maps value to color.
         //
 
         this.Palette_ = new Map();
-        this.Palette_.set(0, {
-            R: 0,
-            G: 0,
-            B: 0
-        });
-        this.Palette_.set(1, {
-            R: 0xa9,
-            G: 0xff,
-            B: 0x52
-        });
-        this.Palette_.set(2, {
-            R: 0xff,
-            G: 0xff,
-            B: 0x99
-        });
-        this.Palette_.set(3, {
-            R: 0xe0,
-            G: 0xb0,
-            B: 0xff
-        });
-        this.Palette_.set(4, {
-            R: 0xff,
-            G: 0x7f,
-            B: 0x7f
-        });
-        this.Palette_.set(5, {
-            R: 0x00,
-            G: 0xff,
-            B: 0x00
-        });
-        this.Palette_.set(6, {
-            R: 0xff,
-            G: 0xff,
-            B: 0x00
-        });
-        this.Palette_.set(7, {
-            R: 0xa0,
-            G: 0x20,
-            B: 0xf0
-        });
-        this.Palette_.set(8, {
-            R: 0xfe,
-            G: 0x00,
-            B: 0x00
-        });
+
+        //
+        // This maps color to name.
+        //
+
+        this.ReversePalette_ = new Map();
+
+        const Names = {
+            // Black
+            'None': 0x00000000,
+            // PaleGreen
+            'UserRead': 0xa9ff52,
+            // CanaryYellow
+            'UserReadExec': 0xffff99,
+            // Mauve
+            'UserReadWrite': 0xe0b0ff,
+            // LightRed
+            'UserReadWriteExec': 0xff7f7f,
+            // Green
+            'KernelRead': 0x00ff00,
+            // Yellow
+            'KernelReadExec': 0xffff00,
+            // Purple
+            'KernelReadWrite': 0xa020f0,
+            // Red
+            'KernelReadWriteExec': 0xfe0000
+        };
+
+        let Idx = 0;
+        for (const [Name, Color] of Object.entries(Names)) {
+            this.Palette_.set(Idx, Color);
+            this.ReversePalette_.set(Color, Name);
+            Idx++;
+        }
 
         this.Regions_ = [];
     }
@@ -261,11 +225,7 @@ class Clairvoyance_t {
             //
 
             const Color = this.Palette_.get(Number(Line));
-            const Offset = ((Coord.Y * this.Width_) + Coord.X) * 4;
-            ImgData.data[Offset + 0] = Color.R;
-            ImgData.data[Offset + 1] = Color.G;
-            ImgData.data[Offset + 2] = Color.B;
-            ImgData.data[Offset + 3] = 0xff;
+            this.setPixelColor(ImgData, Coord.X, Coord.Y, Color);
             Distance++;
 
             //
@@ -292,19 +252,25 @@ class Clairvoyance_t {
         //
 
         this.Canvas_.onclick = async Event => {
-            const X = Event.offsetX;
-            const Y = Event.offsetY;
-            const Va = this.click(X, Y);
+            const Coord = this.getMousePos(Event);
+            const Va = this.click(Coord.X, Coord.Y);
             await navigator.clipboard.writeText(`${Va.toString(16)}`);
         };
 
         this.Canvas_.onmousemove = Event => {
-            const X = Event.offsetX;
-            const Y = Event.offsetY;
-            this.mouseMove(X, Y);
+            const Coord = this.getMousePos(Event);
+            this.mouseMove(Coord.X, Coord.Y);
         };
 
         return [this.Width_, this.Height_];
+    }
+
+    getMousePos(Event) {
+        const Rect = this.Canvas_.getBoundingClientRect();
+        return {
+            X: (((Event.clientX - Rect.left) / (Rect.right - Rect.left)) * this.Canvas_.width) | 0,
+            Y: (((Event.clientY - Rect.top) / (Rect.bottom - Rect.top)) * this.Canvas_.height) | 0
+        };
     }
 
     //
@@ -335,10 +301,10 @@ class Clairvoyance_t {
         //
 
         const Offset = ((Y * this.Width_) + X) * 4;
-        ImgData.data[Offset + 0] = Color.R;
-        ImgData.data[Offset + 1] = Color.G;
-        ImgData.data[Offset + 2] = Color.B;
-        ImgData.data[Offset + 3] = Color.A;
+        ImgData.data[Offset + 0] = (Color >> 16) & 0xff;
+        ImgData.data[Offset + 1] = (Color >> 8) & 0xff;
+        ImgData.data[Offset + 2] = (Color >> 0) & 0xff;
+        ImgData.data[Offset + 3] = 0xff;
     }
 
     //
@@ -352,12 +318,7 @@ class Clairvoyance_t {
         //
 
         const Offset = ((Y * this.Width_) + X) * 4;
-        return {
-            R: ImgData.data[Offset + 0],
-            G: ImgData.data[Offset + 1],
-            B: ImgData.data[Offset + 2],
-            A: ImgData.data[Offset + 3],
-        };
+        return (ImgData.data[Offset + 0] << 16) | (ImgData.data[Offset + 1] << 8) | (ImgData.data[Offset + 2] << 0);
     }
 
     //
@@ -420,7 +381,8 @@ class Clairvoyance_t {
         // Refresh the text log.
         //
 
-        this.ClickLog_.innerText = `Last clicked: ${Va.toString(16)}`;
+        const Protection = this.ReversePalette_.get(this.PixelClick_.Color);
+        this.ClickLog_.innerText = `Last clicked: ${Va.toString(16)} (${Protection})`;
         return Va;
     }
 
@@ -486,6 +448,7 @@ class Clairvoyance_t {
         // Refresh the text log.
         //
 
-        this.MouseLog_.innerText = `${Va.toString(16)}`;
+        const Protection = this.ReversePalette_.get(this.PixelMouseOver_.Color);
+        this.MouseLog_.innerText = `${Va.toString(16)} (${Protection})`;
     }
 }
