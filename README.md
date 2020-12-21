@@ -1,4 +1,4 @@
-# clairvoyance
+# 🔮 clairvoyance
 ![Builds](https://github.com/0vercl0k/clairvoyance/workflows/Builds/badge.svg)
 
 Clairvoyance (/**klɛərˈvɔɪəns**/; from French clair meaning *clear* and voyance meaning *vision*) from [Wikipedia](https://en.wikipedia.org/wiki/Clairvoyance).
