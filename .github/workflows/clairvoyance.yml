@@ -1,0 +1,54 @@
+# Axel '0vercl0k' Souchet - December 11 2020
+name: Builds
+
+on: [push, pull_request]
+
+jobs:
+  Linux2004Gcc:
+    name: Ubuntu 20.04
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Install c++ headers
+      run: sudo apt install -y g++-10 ninja-build
+
+    - name: Grab latest llvm
+      run: sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
+
+    - name: Build
+      run: |
+        cmake --version
+        cd build
+        chmod u+x ./build-release.sh
+        CC=clang-11 CXX=clang++-11 ./build-release.sh
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: linx64-RelWithDebInfo
+        path: build/clairvoyance
+
+  Windows:
+    name: Windows latest
+    runs-on: windows-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Setup vs prompt
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Build
+      run: |
+        cd build
+        .\build-release.bat
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: winx64-RelWithDebInfo
+        path: |
+          build/clairvoyance.exe
+          build/clairvoyance.pdb
