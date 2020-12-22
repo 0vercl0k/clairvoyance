@@ -152,7 +152,7 @@ public:
         // When we're done, complete the segment.
         //
 
-        Region.EndIdx = Tape_.size() - 1;
+        Region.EndIdx = Tape_.size();
         Regions_.emplace_back(Region);
         break;
       }
