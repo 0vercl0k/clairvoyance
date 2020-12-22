@@ -162,12 +162,18 @@ class Clairvoyance_t {
 
     parseFile(Content) {
         const Lines = Content.split('\n');
+        if (Lines.length == 0) {
+            throw `Failed to parse input file: no header`;
+        }
 
         //
         // The header contains the width / height in pixels.
         //
 
-        [this.Width_,this.Height_] = Lines[0].split(' ').map(Number);
+        [this.Width_, this.Height_] = Lines[0].split(' ', 2).map(Number);
+        if (isNaN(this.Width_) || isNaN(this.Height_)) {
+            throw `Failed to parse input file: no header`;
+        }
 
         //
         // Set the canvas' dimensions.
@@ -224,7 +230,12 @@ class Clairvoyance_t {
             // as its color.
             //
 
-            const Color = this.Palette_.get(Number(Line));
+            const Protection = Number(Line);
+            if (isNaN(Protection)) {
+                throw `Failed to parse the file: the protection is not a number`;
+            }
+
+            const Color = this.Palette_.get(Protection);
             this.setPixelColor(ImgData, Coord.X, Coord.Y, Color);
             Distance++;
 
@@ -264,6 +275,10 @@ class Clairvoyance_t {
 
         return [this.Width_, this.Height_];
     }
+
+    //
+    // Get the mouse position from the event.
+    //
 
     getMousePos(Event) {
         const Rect = this.Canvas_.getBoundingClientRect();

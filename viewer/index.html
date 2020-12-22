@@ -26,22 +26,27 @@
       const Canvas = document.getElementById('canvas');
       const ClickLog = document.getElementById('clicked');
       const MouseLog = document.getElementById('mouseover');
-      document.getElementById('preview').style.display = 'none';
-      document.getElementById('canvas').style.display = '';
       const Clairvoyance = new Clairvoyance_t(Canvas, ClickLog, MouseLog);
-      const [Width, Height] = Clairvoyance.parseFile(Content);
-      const Zoom = Panzoom(Canvas, {
-        maxScale: 7,
-        cursor: ''
-      });
+      try {
+        const [Width, Height] = Clairvoyance.parseFile(Content);
+        const Zoom = Panzoom(Canvas, {
+          maxScale: 7,
+          cursor: ''
+        });
 
-      Canvas.addEventListener('wheel', Event => {
-        if (!Event.ctrlKey) {
-          return;
-        }
+        document.getElementById('preview').style.display = 'none';
+        document.getElementById('canvas').style.display = '';
 
-        Zoom.zoomWithWheel(Event);
-      });
+        Canvas.addEventListener('wheel', Event => {
+          if (!Event.ctrlKey) {
+            return;
+          }
+
+          Zoom.zoomWithWheel(Event);
+        });
+      } catch(E) {
+        alert(`${E}`);
+      }
     }
 
     //
@@ -68,7 +73,7 @@
       };
 
       Reader.onerror = () => {
-        console.log(Reader.error);
+        alert(`${Reader.error}`);
       };
 
       Reader.readAsText(File);
@@ -101,7 +106,7 @@
           </li>
         </ul>
         <label class='btn btn-outline-success me-2'>
-          🔍Browse clairvoyance file<input type='file' onchange='read(this)' hidden>
+          🔍Browse clairvoyance file<input type='file' accept='*.clairvoyance' onchange='read(this)' hidden>
         </label>
       </div>
     </div>
@@ -126,7 +131,7 @@
         <div class='col-sm'>
           <h2>Overview</h2>
           <p><strong>clairvoyance</strong> creates a colorful visualization of the page protection of an entire 64-bit process address space (user and kernel) running on a Windows 64-bit kernel.</p>
-          <p>To transform the 1 dimension space, that is the address space, into a 2 dimensions visualization, the <a href='https://en.wikipedia.org/wiki/Hilbert_curve' rel='nofollow'>hilbert space-filling curve</a> is used. Every colored pixel on the picture represents the page protection (<em>UserRead</em>, <em>UserReadWrite</em>, etc.) of a 4KB page in virtual memory.</p>
+          <p>To transform the linear dimension space, that is the address space, into a 2 dimensions visualization, the <a href='https://en.wikipedia.org/wiki/Hilbert_curve' rel='nofollow'>hilbert space-filling curve</a> is used. Every colored pixel on the picture represents the page protection (<em>UserRead</em>, <em>UserReadWrite</em>, etc.) of a 4KB page in virtual memory.</p>
           <p>The address space is directly calculated by manually parsing the <a href='https://en.wikipedia.org/wiki/X86-64#Virtual_address_space_details' rel='nofollow'>four-level</a> page tables hierarchy associated with a process from a kernel crash-dump that has been generated using <a href='https://docs.microsoft.com/en-us/windows-hardware/drivers/debugger/debugger-download-tools' rel='nofollow'>WindDbg</a>.</p>
           <p>Visit the <a href='https://github.com/0vercl0k/clairvoyance/releases'>Github repository</a> to learn more and contribute 🤗</p>
           <h2>Navigation</h2>

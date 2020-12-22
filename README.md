@@ -17,7 +17,7 @@ The address space is directly calculated by manually parsing the [four-level](ht
 
 Finally, the program program outputs a file with the metadata required to have it displayed on a two dimensional canvas as well as being able to calculate the virtual address corresponding to a specific highlighted pixel.
 
-Compiled binaries are available in the [releases](https://github.com/0vercl0k/clairvoyance/releases) section. An online viewer is also hosted at [XXX]().
+Compiled binaries are available in the [releases](https://github.com/0vercl0k/clairvoyance/releases) section. An online viewer is also hosted at [0vercl0k.github.io/clairvoyance](https://0vercl0k.github.io/clairvoyance).
 
 Shouts out to:
 - [Alexandru Radocea](https://twitter.com/defendtheworld) and [Georg Wicherski](https://twitter.com/ochsff) for the inspiration (see their BlackHat USA 2013 research: *[Visualizing Page Tables for Exploitation](https://media.blackhat.com/us-13/US-13-Wicherski-Hacking-like-in-the-Movies-Visualizing-Page-Tables-WP.pdf)*),
@@ -33,7 +33,7 @@ Once the dump has been acquired you can pass its path to clairvoyance as well as
 ./clairvoyance <dump path> [<page dir pa>]
 ```
 
-This generates a file with the *clairvoyance* extension that you then can visualize in your browser at [XXX]() or locally by opening [viewer/index.html](viewer/index.html) in your browser.
+This generates a file with the *clairvoyance* extension that you then can visualize in your browser at [0vercl0k.github.io/clairvoyance](https://0vercl0k.github.io/clairvoyance) or locally by opening [viewer/index.html](viewer/index.html) in your browser.
 
 ## Build
 
