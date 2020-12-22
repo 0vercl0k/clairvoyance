@@ -186,14 +186,6 @@ class Clairvoyance_t {
         for (const Line of Lines.slice(1)) {
 
             //
-            // If the line is empty, break out.
-            //
-
-            // if (Line == '') {
-            //     break;
-            // }
-
-            //
             // If it starts with '0x', this is the address of the current
             // region.
             //
@@ -438,7 +430,6 @@ class Clairvoyance_t {
         //
 
         const Protection = this.Color2Name_.get(PixelColor);
-        debugger;
         this.MouseLog_.innerText = `${Va.toString(16)} (${Protection})`;
     }
 }

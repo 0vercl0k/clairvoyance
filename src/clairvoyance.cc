@@ -295,8 +295,6 @@ public:
       }
     }
 
-    fmt::print("Idx: {} TapeSize: {} LastIdx {}\n", Idx, Tape_.size(),
-               Tape_.size() - 1);
     return true;
   }
 };
