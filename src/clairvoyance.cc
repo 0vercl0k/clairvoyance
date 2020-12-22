@@ -4,6 +4,7 @@
 #include "pagetables.h"
 #include <cmath>
 #include <filesystem>
+#include <vector>
 
 //
 // Turn this on to dump the gap mappings.
