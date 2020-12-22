@@ -31,18 +31,6 @@ class Clairvoyance_t {
         this.Order_ = undefined;
 
         //
-        // This stores the last pixel clicked; it allows us
-        // to restore its color when clicking somewhere else.
-        //
-
-        this.PixelClick_ = {
-            X: undefined,
-            Y: undefined,
-            Color: undefined,
-            HiColor: 0x082567
-        };
-
-        //
         // This stores the last pixel mouseover'd; it allows us
         // to restore its original color when moving the mouse
         // somewhere else.
@@ -52,7 +40,7 @@ class Clairvoyance_t {
             X: undefined,
             Y: undefined,
             Color: undefined,
-            HiColor: 0xFFFFFF,
+            HiColor: 0xffffffff,
         };
 
         //
@@ -63,39 +51,38 @@ class Clairvoyance_t {
         // This maps value to color.
         //
 
-        this.Palette_ = new Map();
+        this.Prot2Color_ = new Map();
 
         //
         // This maps color to name.
         //
 
-        this.ReversePalette_ = new Map();
-
+        this.Color2Name_ = new Map();
         const Names = {
             // Black
-            'None': 0x00000000,
+            'None': 0x000000ff,
             // PaleGreen
-            'UserRead': 0xa9ff52,
+            'UserRead': 0xa9ff52ff,
             // CanaryYellow
-            'UserReadExec': 0xffff99,
+            'UserReadExec': 0xffff99ff,
             // Mauve
-            'UserReadWrite': 0xe0b0ff,
+            'UserReadWrite': 0xe0b0ffff,
             // LightRed
-            'UserReadWriteExec': 0xff7f7f,
+            'UserReadWriteExec': 0xff7f7fff,
             // Green
-            'KernelRead': 0x00ff00,
+            'KernelRead': 0x00ff00ff,
             // Yellow
-            'KernelReadExec': 0xffff00,
+            'KernelReadExec': 0xffff00ff,
             // Purple
-            'KernelReadWrite': 0xa020f0,
+            'KernelReadWrite': 0xa020f0ff,
             // Red
-            'KernelReadWriteExec': 0xfe0000
+            'KernelReadWriteExec': 0xfe0000ff
         };
 
         let Idx = 0;
         for (const [Name, Color] of Object.entries(Names)) {
-            this.Palette_.set(Idx, Color);
-            this.ReversePalette_.set(Color, Name);
+            this.Prot2Color_.set(Idx, Color);
+            this.Color2Name_.set(Color, Name);
             Idx++;
         }
 
@@ -199,6 +186,14 @@ class Clairvoyance_t {
         for (const Line of Lines.slice(1)) {
 
             //
+            // If the line is empty, break out.
+            //
+
+            // if (Line == '') {
+            //     break;
+            // }
+
+            //
             // If it starts with '0x', this is the address of the current
             // region.
             //
@@ -232,23 +227,20 @@ class Clairvoyance_t {
 
             const Protection = Number(Line);
             if (isNaN(Protection)) {
-                throw `Failed to parse the file: the protection is not a number`;
+                throw `Failed to parse the file: the protection is not a number (${Line})`;
             }
 
-            const Color = this.Palette_.get(Protection);
+            const Color = this.Prot2Color_.get(Protection);
             this.setPixelColor(ImgData, Coord.X, Coord.Y, Color);
             Distance++;
 
             //
             // If the clairvoyance file specifies more pages that fit onto the
             // curve, we bail.
-            // XXX: Technically here, I think we should create a second canvas
-            // to be able to represent the rest of the pixels. It could be shown
-            // to the user as a 'second' page like in a book for example.
             //
 
             if (Distance == (this.Width_ * this.Height_)) {
-                break;
+                throw `Failed to parse the file: overflowing the curve`;
             }
         }
 
@@ -264,8 +256,7 @@ class Clairvoyance_t {
 
         this.Canvas_.onclick = async Event => {
             const Coord = this.getMousePos(Event);
-            const Va = this.click(Coord.X, Coord.Y);
-            await navigator.clipboard.writeText(`${Va.toString(16)}`);
+            this.click(Coord.X, Coord.Y);
         };
 
         this.Canvas_.onmousemove = Event => {
@@ -316,24 +307,25 @@ class Clairvoyance_t {
         //
 
         const Offset = ((Y * this.Width_) + X) * 4;
-        ImgData.data[Offset + 0] = (Color >> 16) & 0xff;
-        ImgData.data[Offset + 1] = (Color >> 8) & 0xff;
-        ImgData.data[Offset + 2] = (Color >> 0) & 0xff;
-        ImgData.data[Offset + 3] = 0xff;
+        ImgData.data[Offset + 0] = (Color >>> 24) & 0xff;
+        ImgData.data[Offset + 1] = (Color >>> 16) & 0xff;
+        ImgData.data[Offset + 2] = (Color >>> 8) & 0xff;
+        ImgData.data[Offset + 3] = (Color >>> 0) & 0xff;
     }
 
     //
-    // Save a pixel color.
+    // Get a pixel color.
     //
 
-    savePixelColor(ImgData, X, Y) {
+    getPixelColor(ImgData, X, Y) {
 
         //
         // Calculate the offset of the pixel.
         //
 
         const Offset = ((Y * this.Width_) + X) * 4;
-        return (ImgData.data[Offset + 0] << 16) | (ImgData.data[Offset + 1] << 8) | (ImgData.data[Offset + 2] << 0);
+        return ((ImgData.data[Offset + 0] << 24) | (ImgData.data[Offset + 1] << 16) |
+            (ImgData.data[Offset + 2] << 8) |  (ImgData.data[Offset + 3] << 0)) >>> 0;
     }
 
     //
@@ -343,6 +335,21 @@ class Clairvoyance_t {
     click(X, Y) {
 
         //
+        // Get the canvas' content.
+        //
+
+        const ImgData = this.Ctx_.getImageData(0, 0, this.Width_, this.Height_);
+
+        //
+        // If we are on a region that hasn't been populated there's nothing we can do.
+        //
+
+        const PixelColor = this.getPixelColor(ImgData, X, Y);
+        if (PixelColor == 0) {
+            return;
+        }
+
+        //
         // Calculate the virtual address at this point.
         //
 
@@ -352,53 +359,14 @@ class Clairvoyance_t {
         }
 
         //
-        // Get the canvas' content.
-        //
-
-        const ImgData = this.Ctx_.getImageData(0, 0, this.Width_, this.Height_);
-
-        //
-        // Restore the old pixel's color.
-        //
-
-        this.setPixelColor(ImgData, this.PixelClick_.X, this.PixelClick_.Y, this.PixelClick_.Color);
-
-        //
-        // Save the one we're about to highlight. It's trickier than one would think though.
-        // The issue is that because we track the mouse moving, there's a good chance that
-        // the current pixel is being highlighted; in which case we would read the highlight
-        // color instead of its origin color.
-        // The trick is to check if the current position equals the one of the last move over,
-        // in which case we steal the color from there.
-        //
-
-        this.PixelClick_.X = X;
-        this.PixelClick_.Y = Y;
-        if (this.PixelMouseOver_.X == X && this.PixelMouseOver_.Y == Y) {
-            this.PixelClick_.Color = this.PixelMouseOver_.Color;
-        } else {
-            this.PixelClick_.Color = this.savePixelColor(ImgData, X, Y);
-        }
-
-        //
-        // Change the pixel color.
-        //
-
-        this.setPixelColor(ImgData, X, Y, this.PixelClick_.HiColor);
-
-        //
-        // Update the canvas' content.
-        //
-
-        this.Ctx_.putImageData(ImgData, 0, 0);
-
-        //
         // Refresh the text log.
         //
 
-        const Protection = this.ReversePalette_.get(this.PixelClick_.Color);
-        this.ClickLog_.innerText = `Last clicked: ${Va.toString(16)} (${Protection})`;
-        return Va;
+        const Color = (this.PixelMouseOver_.X == X && this.PixelMouseOver_.Y == Y) ? this.PixelMouseOver_.Color : PixelColor;
+        const Protection = this.Color2Name_.get(Color);
+        navigator.clipboard.writeText(`${Va.toString(16)}`).then(() => {
+            this.ClickLog_.innerText = `Last clicked: ${Va.toString(16)} (${Protection})`;
+        });
     }
 
     //
@@ -408,12 +376,11 @@ class Clairvoyance_t {
     mouseMove(X, Y) {
 
         //
-        // Calculate the virtual address at this point.
+        // If we moved to the same spot, bail.
         //
 
-        const Va = this.addressFromCoord(X, Y);
-        if (Va == undefined) {
-            throw `addressFromCoord failed`;
+        if (this.PixelMouseOver_.X == X && this.PixelMouseOver_.Y == Y) {
+            return undefined;
         }
 
         //
@@ -423,35 +390,42 @@ class Clairvoyance_t {
         const ImgData = this.Ctx_.getImageData(0, 0, this.Width_, this.Height_);
 
         //
-        // Carry on with highlighting only if this pixel hasn't been clicked on,
-        // otherwise it means we would remove its color.
+        // If we are on a region that hasn't been colored, bail.
         //
 
-        if (this.PixelMouseOver_.X != this.PixelClick_.X || this.PixelMouseOver_.Y != this.PixelClick_.Y) {
-
-            //
-            // Restore the old pixel's color.
-            //
-
-            this.setPixelColor(ImgData, this.PixelMouseOver_.X, this.PixelMouseOver_.Y, this.PixelMouseOver_.Color);
+        const PixelColor = this.getPixelColor(ImgData, X, Y);
+        if (PixelColor == 0) {
+            return undefined;
         }
 
-        if (X != this.PixelClick_.X || Y != this.PixelClick_.Y) {
+        //
+        // Calculate the virtual address at this point.
+        //
 
-            //
-            // Save the one we're about to highlight.
-            //
-
-            this.PixelMouseOver_.X = X;
-            this.PixelMouseOver_.Y = Y;
-            this.PixelMouseOver_.Color = this.savePixelColor(ImgData, X, Y);
-
-            //
-            // Change the pixel color if we haven't clicked on it.
-            //
-
-            this.setPixelColor(ImgData, X, Y, this.PixelMouseOver_.HiColor);
+        const Va = this.addressFromCoord(X, Y);
+        if (Va == undefined) {
+            throw `addressFromCoord failed`;
         }
+
+        //
+        // Restore the old pixel's color.
+        //
+
+        this.setPixelColor(ImgData, this.PixelMouseOver_.X, this.PixelMouseOver_.Y, this.PixelMouseOver_.Color);
+
+        //
+        // Save the one we're about to highlight.
+        //
+
+        this.PixelMouseOver_.X = X;
+        this.PixelMouseOver_.Y = Y;
+        this.PixelMouseOver_.Color = PixelColor;
+
+        //
+        // Change the pixel color if we haven't clicked on it.
+        //
+
+        this.setPixelColor(ImgData, X, Y, this.PixelMouseOver_.HiColor);
 
         //
         // Update the canvas' content.
@@ -463,7 +437,8 @@ class Clairvoyance_t {
         // Refresh the text log.
         //
 
-        const Protection = this.ReversePalette_.get(this.PixelMouseOver_.Color);
+        const Protection = this.Color2Name_.get(PixelColor);
+        debugger;
         this.MouseLog_.innerText = `${Va.toString(16)} (${Protection})`;
     }
 }

@@ -279,8 +279,7 @@ public:
   //
 
   bool Write(const fs::path &Filename) const {
-    const uint64_t Log2 = std::log2(float(Tape_.size()));
-    const uint64_t Order = (Log2 / 2);
+    const uint64_t Order = uint64_t(ceil(std::log2(float(Tape_.size())) / 2));
     const uint64_t Width = uint64_t(1) << Order;
     const uint64_t Height = Width;
     fmt::print("Laying it out on an hilbert-curve order {} ({} total pixels)\n",
@@ -296,6 +295,8 @@ public:
       }
     }
 
+    fmt::print("Idx: {} TapeSize: {} LastIdx {}\n", Idx, Tape_.size(),
+               Tape_.size() - 1);
     return true;
   }
 };

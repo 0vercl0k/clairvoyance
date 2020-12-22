@@ -30,7 +30,7 @@
       try {
         const [Width, Height] = Clairvoyance.parseFile(Content);
         const Zoom = Panzoom(Canvas, {
-          maxScale: 7,
+          maxScale: 20,
           cursor: ''
         });
 
@@ -45,6 +45,8 @@
           Zoom.zoomWithWheel(Event);
         });
       } catch(E) {
+        Canvas.width = 0;
+        Canvas.height = 0;
         alert(`${E}`);
       }
     }
