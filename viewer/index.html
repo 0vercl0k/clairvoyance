@@ -36,19 +36,15 @@
 
         document.getElementById('preview').style.display = 'none';
         document.getElementById('canvas').style.display = '';
-
-        Canvas.addEventListener('wheel', Event => {
-          if (!Event.ctrlKey) {
-            return;
-          }
-
-          Zoom.zoomWithWheel(Event);
-        });
+        Canvas.addEventListener('wheel', Zoom.zoomWithWheel);
       } catch(E) {
         Canvas.width = 0;
         Canvas.height = 0;
         alert(`${E}`);
+        return false;
       }
+
+      return true;
     }
 
     //
@@ -59,7 +55,9 @@
       fetch(`./demos/${Name}`).then(R => {
         return R.text();
       }).then(R => {
-        loadItUp(R);
+        if (loadItUp(R)) {
+          document.getElementById('name').innerText = Name;
+        }
       });
     }
 
@@ -71,7 +69,10 @@
       const File = Input.files[0];
       const Reader = new FileReader();
       Reader.onload = () => {
-        return loadItUp(Reader.result);
+        if (loadItUp(Reader.result)) {
+          debugger;
+          document.getElementById('name').innerText = File.name;
+        }
       };
 
       Reader.onerror = () => {
@@ -101,12 +102,13 @@
             </ul>
           </li>
           <li class='nav-item'>
-            <li><a class='nav-link' id='clicked'></a></li>
+            <li><a class='nav-link' id='name'></a></li>
           </li>
           <li class='nav-item'>
-            <li><a class='nav-link' id='mouseover'></a></li>
+            <li><a class='nav-link' id='clicked'></a></li>
           </li>
         </ul>
+        <label class='me-3' id='mouseover'></label>
         <label class='btn btn-outline-success me-2'>
           🔍Browse clairvoyance file<input type='file' accept='*.clairvoyance' onchange='read(this)' hidden>
         </label>
@@ -138,7 +140,7 @@
           <p>Visit the <a href='https://github.com/0vercl0k/clairvoyance/releases'>Github repository</a> to learn more and contribute 🤗</p>
           <h2>Navigation</h2>
           <ul style='list-style-type: none;'>
-            <li>⚡Zoom with mouse wheel with the <strong>ctrl</strong> key</li>
+            <li>⚡Zoom with the mouse wheel</li>
             <li>⚡Pinch zoom two fingers</li>
             <li>⚡Drag the address space to explore</li>
             <li>⚡When a pixel is clicked, its virtual address is copied in the keyboard</li>
