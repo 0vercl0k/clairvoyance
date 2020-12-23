@@ -269,9 +269,9 @@ public:
     // We're done.
     //
 
-    fmt::print("Extracted {} properties from the dump and {} contiguous "
-               "regions\n",
-               Tape_.size(), Regions_.size());
+    fmt::print(
+        "Extracted {} properties and {} contiguous regions from the dump \n",
+        Tape_.size(), Regions_.size());
     return true;
   }
 
