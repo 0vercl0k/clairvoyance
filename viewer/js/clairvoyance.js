@@ -357,7 +357,7 @@ class Clairvoyance_t {
         const Color = (this.PixelMouseOver_.X == X && this.PixelMouseOver_.Y == Y) ? this.PixelMouseOver_.Color : PixelColor;
         const Protection = this.Color2Name_.get(Color);
         navigator.clipboard.writeText(`${Va.toString(16)}`).then(() => {
-            this.ClickLog_.innerText = `Last clicked: ${Va.toString(16)} (${Protection})`;
+            this.ClickLog_.innerText = `Copied: ${Va.toString(16)} (${Protection})`;
         });
     }
 

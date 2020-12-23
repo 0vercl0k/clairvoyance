@@ -48,6 +48,14 @@
     }
 
     //
+    // Set the dump name in the navbar.
+    //
+
+    function setName(Name) {
+      document.getElementById('name').innerText = Name.replace('.clairvoyance', '');
+    }
+
+    //
     // Load a demo.
     //
 
@@ -56,7 +64,7 @@
         return R.text();
       }).then(R => {
         if (loadItUp(R)) {
-          document.getElementById('name').innerText = Name;
+          setName(Name);
         }
       });
     }
@@ -70,8 +78,7 @@
       const Reader = new FileReader();
       Reader.onload = () => {
         if (loadItUp(Reader.result)) {
-          debugger;
-          document.getElementById('name').innerText = File.name;
+          setName(File.name);
         }
       };
 
@@ -108,7 +115,7 @@
         <label class='me-3' id='clicked'></label>
         <label class='me-3' id='name'></label>
         <label class='btn btn-outline-success me-2'>
-          🔍Browse clairvoyance file<input type='file' accept='*.clairvoyance' onchange='read(this)' hidden>
+          🔍Browse clairvoyance file<input type='file' onchange='read(this)' hidden>
         </label>
       </div>
     </div>
