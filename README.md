@@ -37,9 +37,8 @@ This generates a file with the *clairvoyance* extension that you then can visual
 
 
 <p align='center'>
-<img src='pics/clairvoyance.gif' width=60% alt='clairvoyance'>
+<img src='pics/clairvoyance.gif' width=100% alt='clairvoyance'>
 </p>
-
 
 ## Build
 
