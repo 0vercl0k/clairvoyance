@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<!-- Axel '0vercl0k' Souchet - December 16 2020 -->
+<html>
+<head>
+  <title>🔮 Clairvoyance visualizer: virtual address space exploration</title>
+  <meta name='viewport' content='width=device-width, initial-scale=1'>
+  <meta name='description' content='Clairvoyance allows you to explore, visualize the virtual address space (user and kernel) of a Windows process.'>
+  <meta name='keywords' content='clairvoyance, kernel-dump, windbg, visualization, address-space, hilbert-curve, space-filling curve' />
+  <meta name='twitter:card'  content='summary_large_image' />
+  <meta name='twitter:site'  content='@0vercl0k' />
+  <meta name='twitter:image' content='https://0vercl0k.github.io/clairvoyance/pics/twitter.png' />
+  <link rel='stylesheet' href='./css/bootstrap.min.css'>
+  <style>
+    a { text-decoration: none; }
+  </style>
+  <script type='text/javascript' src='./js/bootstrap.min.js'></script>
+  <script type='text/javascript' src='./js/panzoom.min.js'></script>
+  <script type='text/javascript' src='./js/clairvoyance.js'></script>
+  <script>
+
+    //
+    // Load the content.
+    //
+
+    function loadItUp(Content) {
+      const Canvas = document.getElementById('canvas');
+      const ClickLog = document.getElementById('clicked');
+      const MouseLog = document.getElementById('mouseover');
+      const Clairvoyance = new Clairvoyance_t(Canvas, ClickLog, MouseLog);
+      try {
+        const [Width, Height] = Clairvoyance.parseFile(Content);
+        const Zoom = Panzoom(Canvas, {
+          maxScale: 20,
+          cursor: ''
+        });
+
+        document.getElementById('preview').style.display = 'none';
+        document.getElementById('canvas').style.display = '';
+        Canvas.addEventListener('wheel', Zoom.zoomWithWheel);
+      } catch(E) {
+        Canvas.width = 0;
+        Canvas.height = 0;
+        alert(`${E}`);
+        return false;
+      }
+
+      return true;
+    }
+
+    //
+    // Set the dump name in the navbar.
+    //
+
+    function setName(Name) {
+      document.getElementById('name').innerText = Name.replace('.clairvoyance', '');
+    }
+
+    //
+    // Load a demo.
+    //
+
+    function loadDemo(Name) {
+      fetch(`./demos/${Name}`).then(R => {
+        return R.text();
+      }).then(R => {
+        if (loadItUp(R)) {
+          setName(Name);
+        }
+      });
+    }
+
+    //
+    // Read a clairvoyance file.
+    //
+
+    function read(Input) {
+      const File = Input.files[0];
+      const Reader = new FileReader();
+      Reader.onload = () => {
+        if (loadItUp(Reader.result)) {
+          setName(File.name);
+        }
+      };
+
+      Reader.onerror = () => {
+        alert(`${Reader.error}`);
+      };
+
+      Reader.readAsText(File);
+    }
+  </script>
+</head>
+<body style='background-color: #06090f; color: #c9d1d9'>
+  <nav class='navbar navbar-expand-lg navbar-dark bg-dark'>
+    <div class='container-fluid'>
+      <a class='navbar-brand' href='#'>🔮 Clairvoyance</a>
+      <button class='navbar-toggler' type='button' data-bs-toggle='collapse' data-bs-target='#navbarText' aria-controls='navbarText' aria-expanded='false' aria-label='Toggle navigation'>
+        <span class='navbar-toggler-icon'></span>
+      </button>
+      <div class='collapse navbar-collapse' id='navbarText'>
+        <ul class='navbar-nav me-auto mb-2 mb-lg-0'>
+          <li class='nav-item dropdown'>
+            <a class='nav-link dropdown-toggle' href='#' id='navbarDarkDropdownMenuLink' role='button' data-bs-toggle='dropdown' aria-expanded='false'>
+              📁Load examples
+            </a>
+            <ul class='dropdown-menu dropdown-menu-dark' aria-labelledby='navbarDarkDropdownMenuLink'>
+              <li><a class='dropdown-item' onclick="loadDemo('ida64-ph.clairvoyance');">📑IDA64 w/ PageHeap on 19h1_release.190318-1202</a></li>
+              <li><a class='dropdown-item' onclick="loadDemo('ida64.clairvoyance');">📑IDA64 on 19h1_release.190318-1202</a></li>
+            </ul>
+          </li>
+          <li class='nav-item'>
+            <li><a class='nav-link' id='mouseover'></a></li>
+          </li>
+        </ul>
+        <label class='me-3' id='clicked'></label>
+        <label class='me-3' id='name'></label>
+        <label class='btn btn-outline-success me-2'>
+          🔍Browse clairvoyance file<input type='file' onchange='read(this)' hidden>
+        </label>
+      </div>
+    </div>
+  </nav>
+  <div class='container-fluid'>
+    <figure class='text-center'>
+      <blockquote class='blockquote'>
+        <p>Clairvoyance (/<strong>klɛərˈvɔɪəns</strong>/; from French clair meaning <em>clear</em> and voyance meaning <em>vision</em>).</p>
+      </blockquote>
+      <figcaption class='blockquote-footer'>
+        <cite>Wikipedia<cite>
+      </figcaption>
+    </figure>
+    <div class='container-fluid'>
+      <div class='row'>
+        <div class='col-sm' style='border-radius: 15px;'>
+          <img id='preview' src='../pics/ida64_dmp-ph.annotated.png' width='100%' style='border-radius: 15px;' alt='clairvoyance'>
+          <canvas id='canvas' style='width: 100%; display: none; image-rendering: pixelated; '>
+            Your browser does not support the HTML 5 Canvas.
+          </canvas>
+        </div>
+        <div class='col-sm'>
+          <h2>Overview</h2>
+          <p><strong>clairvoyance</strong> creates a colorful visualization of the page protection of an entire 64-bit process address space (user and kernel) running on a Windows 64-bit kernel.</p>
+          <p>To transform the linear dimension space, that is the address space, into a 2 dimensions visualization, the <a href='https://en.wikipedia.org/wiki/Hilbert_curve' rel='nofollow'>hilbert space-filling curve</a> is used. Every colored pixel on the picture represents the page protection (<em>UserRead</em>, <em>UserReadWrite</em>, etc.) of a 4KB page in virtual memory.</p>
+          <p>The address space is directly calculated by manually parsing the <a href='https://en.wikipedia.org/wiki/X86-64#Virtual_address_space_details' rel='nofollow'>four-level</a> page tables hierarchy associated with a process from a kernel crash-dump that has been generated using <a href='https://docs.microsoft.com/en-us/windows-hardware/drivers/debugger/debugger-download-tools' rel='nofollow'>WindDbg</a>.</p>
+          <p>Visit the <a href='https://github.com/0vercl0k/clairvoyance/releases'>Github repository</a> to learn more and contribute 🤗</p>
+          <h2>Navigation</h2>
+          <ul style='list-style-type: none;'>
+            <li>⚡Zoom with the mouse wheel,</li>
+            <li>⚡Pinch zoom two fingers,</li>
+            <li>⚡Drag the address space to explore,</li>
+            <li>⚡When a pixel is clicked, its virtual address is copied in the clipboard and displayed in the navbar.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class='text-center'>Written with 🍻 by Axel '<a href='https://twitter.com/0vercl0k'>@0vercl0k</a>' Souchet</div>
+</body>
+</html>
