@@ -92,9 +92,8 @@ could be mapped using large pages and that those were *krwx*. The reason for tha
 
 The only public mention of this I could find is in this [blogpost](https://nadav.amit.zone/windows/2018/09/15/windows-pti.html):
 
-```
-I contacted Microsoft which claimed that this is intended since “in some cases the kernel is mapped with large pages” and that this can be prevented by enabling virtualization based protection (VBS).
-```
+
+> I contacted Microsoft which claimed that this is intended since “in some cases the kernel is mapped with large pages” and that this can be prevented by enabling virtualization based protection (VBS).
 
 ### Virtual address sinks
 
