@@ -35,6 +35,12 @@ Once the dump has been acquired you can pass its path to clairvoyance as well as
 
 This generates a file with the *clairvoyance* extension that you then can visualize in your browser at [0vercl0k.github.io/clairvoyance](https://0vercl0k.github.io/clairvoyance) or locally by opening [viewer/index.html](viewer/index.html) in your browser.
 
+
+<p align='center'>
+<img src='pics/clairvoyance.gif' width=60% alt='clairvoyance'>
+</p>
+
+
 ## Build
 
 The [CI](https://github.com/0vercl0k/clairvoyance/blob/main/.github/workflows/clairvoyance.yml) builds clairvoyance on Linux using [clang++-11](https://clang.llvm.org/) and on Windows using Microsoft's [Visual studio 2019](https://visualstudio.microsoft.com/vs/community/).
@@ -90,7 +96,7 @@ VA:0xfffff80536800000, PA:0x2400000 (KernelReadWriteExec, Large, PML4E:0xd5745f8
 There are also a bunch of kernel read, write, executable pages that are not large pages, which was somewhat a surprise. I was aware that the kernel / hal
 could be mapped using large pages and that those were *krwx*. The reason for that is that 2MB is so large that it spans both executable and data sections; meaning the page has to be writeable and executable.
 
-The only public mention of this I could find is in this [blogpost](https://nadav.amit.zone/windows/2018/09/15/windows-pti.html):
+The only public mention of this I could find is in this [blogpost](https://nadav.amit.zone/windows/2018/09/15/windows-pti.html) (thx [`Ivan](https://twitter.com/ivanlef0u)):
 
 
 > I contacted Microsoft which claimed that this is intended since “in some cases the kernel is mapped with large pages” and that this can be prevented by enabling virtualization based protection (VBS).
