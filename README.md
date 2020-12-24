@@ -87,6 +87,15 @@ Evaluate expression: -8773703827456 = fffff805`36800000
 VA:0xfffff80536800000, PA:0x2400000 (KernelReadWriteExec, Large, PML4E:0xd5745f80, PDPTE:0x42080a0, PDE:0x4209da0, PTE:0x0)
 ```
 
+There are also a bunch of kernel read, write, executable pages that are not large pages, which was somewhat a surprise. I was aware that the kernel / hal
+could be mapped using large pages and that those were *krwx*. The reason for that is that 2MB is so large that it spans both executable and data sections; meaning the page has to be writeable and executable.
+
+The only public mention of this I could find is in this [blogpost](https://nadav.amit.zone/windows/2018/09/15/windows-pti.html):
+
+```
+I contacted Microsoft which claimed that this is intended since “in some cases the kernel is mapped with large pages” and that this can be prevented by enabling virtualization based protection (VBS).
+```
+
 ### Virtual address sinks
 
 A bunch of large kernel memory sections are mapped against the same physical page (filled with zero):
@@ -115,6 +124,34 @@ VA:0xffffc27ed25fd000, PA:0x4300000 (KernelRead, Normal, ...)
 VA:0xffffc27ed25fe000, PA:0x4300000 (KernelRead, Normal, ...)
 VA:0xffffc27ed25ff000, PA:0x4300000 (KernelRead, Normal, ...)
 ```
+
+### Gallery of patterns
+
+This is just a section showing off some of the cool patterns you can see in some regions of an address space.
+
+#### Page heap
+
+Page heap allocations and their guard pages are pretty cool looking and easy to spot:
+
+<p align='center'>
+<img src='pics/ph.png' width=80% alt='ph'>
+</p>
+
+#### Kernel stacks
+
+Kernel stacks also have a nice recognizable shape because of their size and guard pages:
+
+<p align='center'>
+<img src='pics/kstack.png' width=85% alt='kstack'>
+</p>
+
+### System cache
+
+The system cache region in the kernel seems to be looking like a nebula in the dumps I have seen:
+
+<p align='center'>
+<img src='pics/systemcache.png' width=90% alt='systemcache'>
+</p>
 
 ## Authors
 
