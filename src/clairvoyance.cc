@@ -4,6 +4,7 @@
 #include "pagetables.h"
 #include <cmath>
 #include <filesystem>
+#include <vector>
 
 //
 // Turn this on to dump the gap mappings.
@@ -152,7 +153,7 @@ public:
         // When we're done, complete the segment.
         //
 
-        Region.EndIdx = Tape_.size() - 1;
+        Region.EndIdx = Tape_.size();
         Regions_.emplace_back(Region);
         break;
       }
@@ -268,9 +269,9 @@ public:
     // We're done.
     //
 
-    fmt::print("Extracted {} properties from the dump and {} contiguous "
-               "regions\n",
-               Tape_.size(), Regions_.size());
+    fmt::print(
+        "Extracted {} properties and {} contiguous regions from the dump \n",
+        Tape_.size(), Regions_.size());
     return true;
   }
 
@@ -279,8 +280,7 @@ public:
   //
 
   bool Write(const fs::path &Filename) const {
-    const uint64_t Log2 = std::log2(float(Tape_.size()));
-    const uint64_t Order = (Log2 / 2);
+    const uint64_t Order = uint64_t(ceil(std::log2(float(Tape_.size())) / 2));
     const uint64_t Width = uint64_t(1) << Order;
     const uint64_t Height = Width;
     fmt::print("Laying it out on an hilbert-curve order {} ({} total pixels)\n",

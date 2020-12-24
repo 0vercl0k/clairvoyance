@@ -8,7 +8,7 @@
   <meta name='keywords' content='clairvoyance, kernel-dump, windbg, visualization, address-space, hilbert-curve, space-filling curve' />
   <meta name='twitter:card'  content='summary_large_image' />
   <meta name='twitter:site'  content='@0vercl0k' />
-  <meta name='twitter:image' content='https://XXX/twitter.png' />
+  <meta name='twitter:image' content='https://0vercl0k.github.io/clairvoyance/pics/twitter.png' />
   <link rel='stylesheet' href='./css/bootstrap.min.css'>
   <style>
     a { text-decoration: none; }
@@ -26,22 +26,33 @@
       const Canvas = document.getElementById('canvas');
       const ClickLog = document.getElementById('clicked');
       const MouseLog = document.getElementById('mouseover');
-      document.getElementById('preview').style.display = 'none';
-      document.getElementById('canvas').style.display = '';
       const Clairvoyance = new Clairvoyance_t(Canvas, ClickLog, MouseLog);
-      const [Width, Height] = Clairvoyance.parseFile(Content);
-      const Zoom = Panzoom(Canvas, {
-        maxScale: 7,
-        cursor: ''
-      });
+      try {
+        const [Width, Height] = Clairvoyance.parseFile(Content);
+        const Zoom = Panzoom(Canvas, {
+          maxScale: 20,
+          cursor: ''
+        });
 
-      Canvas.addEventListener('wheel', Event => {
-        if (!Event.ctrlKey) {
-          return;
-        }
+        document.getElementById('preview').style.display = 'none';
+        document.getElementById('canvas').style.display = '';
+        Canvas.addEventListener('wheel', Zoom.zoomWithWheel);
+      } catch(E) {
+        Canvas.width = 0;
+        Canvas.height = 0;
+        alert(`${E}`);
+        return false;
+      }
 
-        Zoom.zoomWithWheel(Event);
-      });
+      return true;
+    }
+
+    //
+    // Set the dump name in the navbar.
+    //
+
+    function setName(Name) {
+      document.getElementById('name').innerText = Name.replace('.clairvoyance', '');
     }
 
     //
@@ -52,7 +63,9 @@
       fetch(`./demos/${Name}`).then(R => {
         return R.text();
       }).then(R => {
-        loadItUp(R);
+        if (loadItUp(R)) {
+          setName(Name);
+        }
       });
     }
 
@@ -64,11 +77,13 @@
       const File = Input.files[0];
       const Reader = new FileReader();
       Reader.onload = () => {
-        return loadItUp(Reader.result);
+        if (loadItUp(Reader.result)) {
+          setName(File.name);
+        }
       };
 
       Reader.onerror = () => {
-        console.log(Reader.error);
+        alert(`${Reader.error}`);
       };
 
       Reader.readAsText(File);
@@ -94,12 +109,11 @@
             </ul>
           </li>
           <li class='nav-item'>
-            <li><a class='nav-link' id='clicked'></a></li>
-          </li>
-          <li class='nav-item'>
             <li><a class='nav-link' id='mouseover'></a></li>
           </li>
         </ul>
+        <label class='me-3' id='clicked'></label>
+        <label class='me-3' id='name'></label>
         <label class='btn btn-outline-success me-2'>
           🔍Browse clairvoyance file<input type='file' onchange='read(this)' hidden>
         </label>
@@ -117,8 +131,8 @@
     </figure>
     <div class='container-fluid'>
       <div class='row'>
-        <div class='col-sm' style='border-radius: 25px;'>
-          <img id='preview' src='../pics/ida64_dmp-ph.annotated.png' width='100%' style='border-radius: 25px;' alt='clairvoyance'>
+        <div class='col-sm' style='border-radius: 15px;'>
+          <img id='preview' src='../pics/ida64_dmp-ph.annotated.png' width='100%' style='border-radius: 15px;' alt='clairvoyance'>
           <canvas id='canvas' style='width: 100%; display: none; image-rendering: pixelated; '>
             Your browser does not support the HTML 5 Canvas.
           </canvas>
@@ -126,15 +140,15 @@
         <div class='col-sm'>
           <h2>Overview</h2>
           <p><strong>clairvoyance</strong> creates a colorful visualization of the page protection of an entire 64-bit process address space (user and kernel) running on a Windows 64-bit kernel.</p>
-          <p>To transform the 1 dimension space, that is the address space, into a 2 dimensions visualization, the <a href='https://en.wikipedia.org/wiki/Hilbert_curve' rel='nofollow'>hilbert space-filling curve</a> is used. Every colored pixel on the picture represents the page protection (<em>UserRead</em>, <em>UserReadWrite</em>, etc.) of a 4KB page in virtual memory.</p>
+          <p>To transform the linear dimension space, that is the address space, into a 2 dimensions visualization, the <a href='https://en.wikipedia.org/wiki/Hilbert_curve' rel='nofollow'>hilbert space-filling curve</a> is used. Every colored pixel on the picture represents the page protection (<em>UserRead</em>, <em>UserReadWrite</em>, etc.) of a 4KB page in virtual memory.</p>
           <p>The address space is directly calculated by manually parsing the <a href='https://en.wikipedia.org/wiki/X86-64#Virtual_address_space_details' rel='nofollow'>four-level</a> page tables hierarchy associated with a process from a kernel crash-dump that has been generated using <a href='https://docs.microsoft.com/en-us/windows-hardware/drivers/debugger/debugger-download-tools' rel='nofollow'>WindDbg</a>.</p>
           <p>Visit the <a href='https://github.com/0vercl0k/clairvoyance/releases'>Github repository</a> to learn more and contribute 🤗</p>
           <h2>Navigation</h2>
           <ul style='list-style-type: none;'>
-            <li>⚡Zoom with mouse wheel with the <strong>ctrl</strong> key</li>
-            <li>⚡Pinch zoom two fingers</li>
-            <li>⚡Drag the address space to explore</li>
-            <li>⚡When a pixel is clicked, its virtual address is copied in the keyboard</li>
+            <li>⚡Zoom with the mouse wheel,</li>
+            <li>⚡Pinch zoom two fingers,</li>
+            <li>⚡Drag the address space to explore,</li>
+            <li>⚡When a pixel is clicked, its virtual address is copied in the clipboard and displayed in the navbar.</li>
           </ul>
         </div>
       </div>

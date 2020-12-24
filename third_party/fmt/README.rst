@@ -1,8 +1,14 @@
 {fmt}
 =====
 
-.. image:: https://travis-ci.org/fmtlib/fmt.png?branch=master
-   :target: https://travis-ci.org/fmtlib/fmt
+.. image:: https://github.com/fmtlib/fmt/workflows/linux/badge.svg
+   :target: https://github.com/fmtlib/fmt/actions?query=workflow%3Alinux
+
+.. image:: https://github.com/fmtlib/fmt/workflows/macos/badge.svg
+   :target: https://github.com/fmtlib/fmt/actions?query=workflow%3Amacos
+
+.. image:: https://github.com/fmtlib/fmt/workflows/windows/badge.svg
+   :target: https://github.com/fmtlib/fmt/actions?query=workflow%3Awindows
 
 .. image:: https://ci.appveyor.com/api/projects/status/ehjkiefde6gucy1v
    :target: https://ci.appveyor.com/project/vitaut/fmt
@@ -22,7 +28,7 @@ alternative to C stdio and C++ iostreams.
 
 If you like this project, please consider donating to BYSOL,
 an initiative to help victims of political repressions in Belarus:
-https://www.facebook.com/donate/759400044849707/108388587646909/.
+https://www.facebook.com/donate/988051675049849/.
 
 `Documentation <https://fmt.dev>`__
 
@@ -137,7 +143,7 @@ Output::
 
 .. code:: c++
 
-    std::string s = fmt::format(FMT_STRING("{:d}"), "don't panic");
+    std::string s = fmt::format(FMT_STRING("{:d}"), "I am not a number");
 
 This gives a compile-time error because ``d`` is an invalid format specifier for
 a string.
@@ -290,6 +296,8 @@ Projects using this library
 * `0 A.D. <https://play0ad.com/>`_: a free, open-source, cross-platform
   real-time strategy game
 
+* `2GIS <https://2gis.ru/>`_: free business listings with a city map
+
 * `AMPL/MP <https://github.com/ampl/mp>`_:
   an open-source library for mathematical programming
 
@@ -310,7 +318,7 @@ Projects using this library
 * `ClickHouse <https://github.com/ClickHouse/ClickHouse>`_: analytical database
   management system
 
-* `CUAUV <http://cuauv.org/>`_: Cornell University's autonomous underwater
+* `CUAUV <https://cuauv.org/>`_: Cornell University's autonomous underwater
   vehicle
 
 * `Drake <https://drake.mit.edu/>`_: a planning, control, and analysis toolbox

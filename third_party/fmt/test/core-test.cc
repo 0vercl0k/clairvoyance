@@ -23,7 +23,10 @@
 #  include <windows.h>
 #endif
 
-#include "fmt/core.h"
+#include "fmt/args.h"
+#if defined(FMT_COMPILE_TIME_CHECKS) && FMT_COMPILE_TIME_CHECKS
+#  include "fmt/format.h"
+#endif
 
 #undef min
 #undef max
@@ -83,8 +86,8 @@ template <typename T> struct mock_buffer final : buffer<T> {
 
   void grow(size_t capacity) { this->set(this->data(), do_grow(capacity)); }
 
-  mock_buffer(T* data = nullptr, size_t capacity = 0) {
-    this->set(data, capacity);
+  mock_buffer(T* data = nullptr, size_t buf_capacity = 0) {
+    this->set(data, buf_capacity);
     ON_CALL(*this, do_grow(_)).WillByDefault(Invoke([](size_t capacity) {
       return capacity;
     }));
@@ -224,9 +227,9 @@ struct custom_context {
   };
 
   bool called;
-  fmt::format_parse_context ctx;
+  fmt::format_parse_context parse_ctx;
 
-  fmt::format_parse_context& parse_context() { return ctx; }
+  fmt::format_parse_context& parse_context() { return parse_ctx; }
   void advance_to(const char*) {}
 };
 
@@ -633,7 +636,7 @@ template <> struct formatter<convertible_to_int> {
 };
 
 template <> struct formatter<convertible_to_c_string> {
-  auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
+  FMT_CONSTEXPR auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
     return ctx.begin();
   }
   auto format(convertible_to_c_string, format_context& ctx)
@@ -688,26 +691,18 @@ TYPED_TEST(IsStringTest, IsString) {
   EXPECT_TRUE(fmt::detail::is_string<fmt::basic_string_view<TypeParam>>::value);
   EXPECT_TRUE(
       fmt::detail::is_string<derived_from_string_view<TypeParam>>::value);
-  using string_view = fmt::detail::std_string_view<TypeParam>;
-  EXPECT_TRUE(std::is_empty<string_view>::value !=
-              fmt::detail::is_string<string_view>::value);
+  using fmt_string_view = fmt::detail::std_string_view<TypeParam>;
+  EXPECT_TRUE(std::is_empty<fmt_string_view>::value !=
+              fmt::detail::is_string<fmt_string_view>::value);
   EXPECT_TRUE(fmt::detail::is_string<my_ns::my_string<TypeParam>>::value);
   EXPECT_FALSE(fmt::detail::is_string<my_ns::non_string>::value);
 }
 
 TEST(CoreTest, Format) {
-  // This should work without including fmt/format.h.
-#ifdef FMT_FORMAT_H_
-#  error fmt/format.h must not be included in the core test
-#endif
   EXPECT_EQ(fmt::format("{}", 42), "42");
 }
 
 TEST(CoreTest, FormatTo) {
-  // This should work without including fmt/format.h.
-#ifdef FMT_FORMAT_H_
-#  error fmt/format.h must not be included in the core test
-#endif
   std::string s;
   fmt::format_to(std::back_inserter(s), "{}", 42);
   EXPECT_EQ(s, "42");

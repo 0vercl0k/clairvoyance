@@ -26,7 +26,7 @@ is safer, simpler and several times `faster
 <https://www.zverovich.net/2020/06/13/fast-int-to-string-revisited.html>`_
 than common standard library implementations.
 The `format string syntax <syntax.html>`_ is similar to the one used by
-`str.format <http://docs.python.org/3/library/stdtypes.html#str.format>`_ in
+`str.format <https://docs.python.org/3/library/stdtypes.html#str.format>`_ in
 Python:
 
 .. code:: c++
@@ -166,7 +166,7 @@ The library is highly portable and relies only on a small set of C++11 features:
 * deleted functions
 * alias templates
 
-These are available in GCC 4.8, Clang 3.0, MSVC 19.0 (2015) and more recent
+These are available in GCC 4.8, Clang 3.4, MSVC 19.0 (2015) and more recent
 compiler version. For older compilers use {fmt} `version 4.x
 <https://github.com/fmtlib/fmt/releases/tag/4.1.0>`_ which is maintained and
 only requires C++98.
@@ -190,11 +190,13 @@ just three header files and no external dependencies.
 A permissive MIT `license <https://github.com/fmtlib/fmt#license>`_ allows
 using the library both in open-source and commercial projects.
 
+`Learn more... <contents.html>`_
+
 .. raw:: html
 
   <a class="btn btn-success" href="https://github.com/fmtlib/fmt">GitHub Repository</a>
 
   <div class="section footer">
-    <iframe src="http://ghbtns.com/github-btn.html?user=fmtlib&amp;repo=fmt&amp;type=watch&amp;count=true"
+    <iframe src="https://ghbtns.com/github-btn.html?user=fmtlib&amp;repo=fmt&amp;type=watch&amp;count=true"
             class="github-btn" width="100" height="20"></iframe>
   </div>

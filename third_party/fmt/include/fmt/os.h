@@ -8,11 +8,6 @@
 #ifndef FMT_OS_H_
 #define FMT_OS_H_
 
-#if defined(__MINGW32__) || defined(__CYGWIN__)
-// Workaround MinGW bug https://sourceforge.net/p/mingw/bugs/2024/.
-#  undef __STRICT_ANSI__
-#endif
-
 #include <cerrno>
 #include <clocale>  // for locale_t
 #include <cstddef>
@@ -280,7 +275,8 @@ class file {
     WRONLY = FMT_POSIX(O_WRONLY),  // Open for writing only.
     RDWR = FMT_POSIX(O_RDWR),      // Open for reading and writing.
     CREATE = FMT_POSIX(O_CREAT),   // Create if the file doesn't exist.
-    APPEND = FMT_POSIX(O_APPEND)   // Open in append mode.
+    APPEND = FMT_POSIX(O_APPEND),  // Open in append mode.
+    TRUNC = FMT_POSIX(O_TRUNC)     // Truncate the content of the file.
   };
 
   // Constructs a file object which doesn't represent any file.
@@ -357,14 +353,14 @@ struct buffer_size {
 };
 
 struct ostream_params {
-  int oflag = file::WRONLY | file::CREATE;
+  int oflag = file::WRONLY | file::CREATE | file::TRUNC;
   size_t buffer_size = BUFSIZ > 32768 ? BUFSIZ : 32768;
 
   ostream_params() {}
 
   template <typename... T>
-  ostream_params(T... params, int oflag) : ostream_params(params...) {
-    this->oflag = oflag;
+  ostream_params(T... params, int new_oflag) : ostream_params(params...) {
+    oflag = new_oflag;
   }
 
   template <typename... T>
@@ -415,8 +411,9 @@ class ostream final : private detail::buffer<char> {
   }
 
   template <typename S, typename... Args>
-  void print(const S& format_str, const Args&... args) {
-    format_to(detail::buffer_appender<char>(*this), format_str, args...);
+  void print(const S& format_str, Args&&... args) {
+    format_to(detail::buffer_appender<char>(*this), format_str,
+              std::forward<Args>(args)...);
   }
 };
 

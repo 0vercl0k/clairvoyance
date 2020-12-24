@@ -8,6 +8,7 @@
 #ifndef FMT_FORMAT_INL_H_
 #define FMT_FORMAT_INL_H_
 
+#include <algorithm>
 #include <cassert>
 #include <cctype>
 #include <climits>
@@ -145,8 +146,8 @@ FMT_FUNC void format_error_code(detail::buffer<char>& out, int error_code,
   error_code_size += detail::to_unsigned(detail::count_digits(abs_value));
   auto it = buffer_appender<char>(out);
   if (message.size() <= inline_buffer_size - error_code_size)
-    format_to(it, "{}{}", message, SEP);
-  format_to(it, "{}{}", ERROR_STR, error_code);
+    format_to(it, FMT_STRING("{}{}"), message, SEP);
+  format_to(it, FMT_STRING("{}{}"), ERROR_STR, error_code);
   assert(out.size() <= inline_buffer_size);
 }
 
@@ -1646,8 +1647,7 @@ struct fixed_handler {
 // Implementation of Dragonbox algorithm: https://github.com/jk-jeon/dragonbox.
 namespace dragonbox {
 // Computes 128-bit result of multiplication of two 64-bit unsigned integers.
-FMT_SAFEBUFFERS inline uint128_wrapper umul128(uint64_t x,
-                                               uint64_t y) FMT_NOEXCEPT {
+inline uint128_wrapper umul128(uint64_t x, uint64_t y) FMT_NOEXCEPT {
 #if FMT_USE_INT128
   return static_cast<uint128_t>(x) * static_cast<uint128_t>(y);
 #elif defined(_MSC_VER) && defined(_M_X64)
@@ -1675,8 +1675,7 @@ FMT_SAFEBUFFERS inline uint128_wrapper umul128(uint64_t x,
 }
 
 // Computes upper 64 bits of multiplication of two 64-bit unsigned integers.
-FMT_SAFEBUFFERS inline uint64_t umul128_upper64(uint64_t x,
-                                                uint64_t y) FMT_NOEXCEPT {
+inline uint64_t umul128_upper64(uint64_t x, uint64_t y) FMT_NOEXCEPT {
 #if FMT_USE_INT128
   auto p = static_cast<uint128_t>(x) * static_cast<uint128_t>(y);
   return static_cast<uint64_t>(p >> 64);
@@ -1689,8 +1688,7 @@ FMT_SAFEBUFFERS inline uint64_t umul128_upper64(uint64_t x,
 
 // Computes upper 64 bits of multiplication of a 64-bit unsigned integer and a
 // 128-bit unsigned integer.
-FMT_SAFEBUFFERS inline uint64_t umul192_upper64(uint64_t x, uint128_wrapper y)
-    FMT_NOEXCEPT {
+inline uint64_t umul192_upper64(uint64_t x, uint128_wrapper y) FMT_NOEXCEPT {
   uint128_wrapper g0 = umul128(x, y.high());
   g0 += umul128_upper64(x, y.low());
   return g0.high();
@@ -1704,8 +1702,7 @@ inline uint32_t umul96_upper32(uint32_t x, uint64_t y) FMT_NOEXCEPT {
 
 // Computes middle 64 bits of multiplication of a 64-bit unsigned integer and a
 // 128-bit unsigned integer.
-FMT_SAFEBUFFERS inline uint64_t umul192_middle64(uint64_t x, uint128_wrapper y)
-    FMT_NOEXCEPT {
+inline uint64_t umul192_middle64(uint64_t x, uint128_wrapper y) FMT_NOEXCEPT {
   uint64_t g01 = x * y.high();
   uint64_t g10 = umul128_upper64(x, y.low());
   return g01 + g10;
@@ -2124,8 +2121,8 @@ FMT_ALWAYS_INLINE int remove_trailing_zeros(uint64_t& n) FMT_NOEXCEPT {
 
 // The main algorithm for shorter interval case
 template <class T>
-FMT_ALWAYS_INLINE FMT_SAFEBUFFERS decimal_fp<T> shorter_interval_case(
-    int exponent) FMT_NOEXCEPT {
+FMT_ALWAYS_INLINE decimal_fp<T> shorter_interval_case(int exponent)
+    FMT_NOEXCEPT {
   decimal_fp<T> ret_value;
   // Compute k and beta
   const int minus_k = floor_log10_pow2_minus_log10_4_over_3(exponent);
@@ -2171,8 +2168,7 @@ FMT_ALWAYS_INLINE FMT_SAFEBUFFERS decimal_fp<T> shorter_interval_case(
   return ret_value;
 }
 
-template <typename T>
-FMT_SAFEBUFFERS decimal_fp<T> to_decimal(T x) FMT_NOEXCEPT {
+template <typename T> decimal_fp<T> to_decimal(T x) FMT_NOEXCEPT {
   // Step 1: integer promotion & Schubfach multiplier calculation.
 
   using carrier_uint = typename float_info<T>::carrier_uint;
@@ -2656,7 +2652,8 @@ struct stringifier {
 }  // namespace detail
 
 template <> struct formatter<detail::bigint> {
-  format_parse_context::iterator parse(format_parse_context& ctx) {
+  FMT_CONSTEXPR format_parse_context::iterator parse(
+      format_parse_context& ctx) {
     return ctx.begin();
   }
 
@@ -2667,14 +2664,15 @@ template <> struct formatter<detail::bigint> {
     for (auto i = n.bigits_.size(); i > 0; --i) {
       auto value = n.bigits_[i - 1u];
       if (first) {
-        out = format_to(out, "{:x}", value);
+        out = format_to(out, FMT_STRING("{:x}"), value);
         first = false;
         continue;
       }
-      out = format_to(out, "{:08x}", value);
+      out = format_to(out, FMT_STRING("{:08x}"), value);
     }
     if (n.exp_ > 0)
-      out = format_to(out, "p{}", n.exp_ * detail::bigint::bigit_bits);
+      out = format_to(out, FMT_STRING("p{}"),
+                      n.exp_ * detail::bigint::bigit_bits);
     return out;
   }
 };
@@ -2720,8 +2718,8 @@ FMT_FUNC void format_system_error(detail::buffer<char>& out, int error_code,
       int result =
           detail::safe_strerror(error_code, system_message, buf.size());
       if (result == 0) {
-        format_to(detail::buffer_appender<char>(out), "{}: {}", message,
-                  system_message);
+        format_to(detail::buffer_appender<char>(out), FMT_STRING("{}: {}"),
+                  message, system_message);
         return;
       }
       if (result != ERANGE)

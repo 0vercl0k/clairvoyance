@@ -33,7 +33,7 @@ include ``fmt/format.h`` instead of ``fmt/core.h``.
 
 The following functions use :ref:`format string syntax <syntax>`
 similar to that of Python's `str.format
-<http://docs.python.org/3/library/stdtypes.html#str.format>`_.
+<https://docs.python.org/3/library/stdtypes.html#str.format>`_.
 They take *format_str* and *args* as arguments.
 
 *format_str* is a format string that contains literal text and replacement
@@ -45,20 +45,23 @@ participate in an overload resolution if the latter is not a string.
 
 .. _format:
 
-.. doxygenfunction:: format(const S&, Args&&...)
-.. doxygenfunction:: vformat(const S&, basic_format_args<buffer_context<type_identity_t<Char>>>)
+.. doxygenfunction:: format(const S &format_str, Args&&... args)
+.. doxygenfunction:: vformat(const S &format_str, basic_format_args<buffer_context<type_identity_t<Char>>> args)
 
-.. doxygenfunction:: fmt::format_to(OutputIt, const S&, Args&&...)
-.. doxygenfunction:: fmt::format_to_n(OutputIt, size_t, const S&, const Args&...)
-.. doxygenfunction:: fmt::formatted_size(string_view, Args&&...)
+.. doxygenfunction:: format_to(OutputIt out, const S&, const Args&... args)
+.. doxygenfunction:: format_to_n(OutputIt out, size_t n, const S&, const Args&... args)
+.. doxygenfunction:: formatted_size(string_view format_str, Args&&... args)
+
+.. doxygenstruct:: fmt::format_to_n_result
+   :members:
 
 .. _print:
 
-.. doxygenfunction:: print(const S&, Args&&...)
+.. doxygenfunction:: print(const S &format_str, Args&&... args)
 .. doxygenfunction:: vprint(string_view, format_args)
 
-.. doxygenfunction:: print(std::FILE *, const S&, Args&&...)
-.. doxygenfunction:: vprint(std::FILE *, string_view, format_args)
+.. doxygenfunction:: print(std::FILE *f, const S &format_str, Args&&... args)
+.. doxygenfunction:: vprint(std::FILE*, string_view, format_args)
 
 Named Arguments
 ---------------
@@ -114,6 +117,12 @@ times and reduces binary code size compared to a fully parameterized version.
 
 .. doxygenclass:: fmt::basic_format_arg
    :members:
+
+.. doxygenclass:: fmt::basic_format_context
+   :members:
+
+.. doxygentypedef:: fmt::format_context
+.. doxygentypedef:: fmt::wformat_context
 
 Compatibility
 -------------
@@ -280,22 +289,14 @@ conversion.
 .. doxygenclass:: fmt::basic_format_parse_context
    :members:
 
-Output Iterator Support
------------------------
-
-.. doxygenfunction:: fmt::format_to(OutputIt, const S&, Args&&...)
-.. doxygenfunction:: fmt::format_to_n(OutputIt, size_t, const S&, const Args&...)
-.. doxygenstruct:: fmt::format_to_n_result
-   :members:
-
 Literal-based API
 -----------------
 
 The following user-defined literals are defined in ``fmt/format.h``.
 
-.. doxygenfunction:: operator""_format(const char *, size_t)
+.. doxygenfunction:: operator""_format(const char *s, size_t n)
 
-.. doxygenfunction:: operator""_a(const char *, size_t)
+.. doxygenfunction:: operator""_a(const char *s, size_t)
 
 Utilities
 ---------
@@ -304,19 +305,19 @@ Utilities
 
 .. doxygentypedef:: fmt::char_t
 
-.. doxygenfunction:: fmt::ptr(const T *)
-.. doxygenfunction:: fmt::ptr(const std::unique_ptr<T>&)
-.. doxygenfunction:: fmt::ptr(const std::shared_ptr<T>&)
+.. doxygenfunction:: fmt::ptr(const T *p)
+.. doxygenfunction:: fmt::ptr(const std::unique_ptr<T> &p)
+.. doxygenfunction:: fmt::ptr(const std::shared_ptr<T> &p)
 
-.. doxygenfunction:: fmt::to_string(const T&)
+.. doxygenfunction:: fmt::to_string(const T &value)
 
-.. doxygenfunction:: fmt::to_wstring(const T&)
+.. doxygenfunction:: fmt::to_wstring(const T &value)
 
-.. doxygenfunction:: fmt::to_string_view(const Char *)
+.. doxygenfunction:: fmt::to_string_view(const Char *s)
 
-.. doxygenfunction:: fmt::join(Range&&, string_view)
+.. doxygenfunction:: fmt::join(Range &&range, string_view sep)
 
-.. doxygenfunction:: fmt::join(It, Sentinel, string_view)
+.. doxygenfunction:: fmt::join(It begin, Sentinel end, string_view sep)
 
 .. doxygenclass:: fmt::detail::buffer
    :members:
@@ -405,18 +406,37 @@ Using ``fmt::join``, you can separate tuple elements with a custom separator::
 Date and Time Formatting
 ========================
 
-The library supports `strftime
-<http://en.cppreference.com/w/cpp/chrono/c/strftime>`_-like date and time
-formatting::
+``fmt/chrono.h`` provides formatters for
+
+* `std::chrono::duration <https://en.cppreference.com/w/cpp/chrono/duration>`_
+* `std::chrono::time_point
+  <https://en.cppreference.com/w/cpp/chrono/time_point>`_
+* `std::tm <https://en.cppreference.com/w/cpp/chrono/c/tm>`_
+
+The format syntax is described in :ref:`chrono-specs`.
+
+**Example**::
 
   #include <fmt/chrono.h>
 
-  std::time_t t = std::time(nullptr);
-  // Prints "The date is 2016-04-29." (with the current date)
-  fmt::print("The date is {:%Y-%m-%d}.", fmt::localtime(t));
+  int main() {
+    std::time_t t = std::time(nullptr);
 
-The format string syntax is described in the documentation of
-`strftime <http://en.cppreference.com/w/cpp/chrono/c/strftime>`_.
+    // Prints "The date is 2020-11-07." (with the current date):
+    fmt::print("The date is {:%Y-%m-%d}.", fmt::localtime(t));
+
+    using namespace std::literals::chrono_literals;
+
+    // Prints "Default format: 42s 100ms":
+    fmt::print("Default format: {} {}\n", 42s, 100ms);
+
+    // Prints "strftime-like format: 03:15:30":
+    fmt::print("strftime-like format: {:%H:%M:%S}\n", 3h + 15min + 30s);
+  }
+
+.. doxygenfunction:: localtime(std::time_t time)
+
+.. doxygenfunction:: gmtime(std::time_t time)
 
 .. _compile-api:
 
@@ -424,13 +444,12 @@ Format string compilation
 =========================
 
 ``fmt/compile.h`` provides format string compilation support when using
-``FMT_COMPILE``. Format strings are parsed, checked and converted
-into efficient formatting code at compile-time.
-This supports arguments of built-in and string types as well as user-defined types
-with ``constexpr`` ``parse`` functions in their ``formatter`` specializations.
-Format string compilation can generate more binary code compared to the default
-API and is only recommended in places where formatting is a performance
-bottleneck.
+``FMT_COMPILE``. Format strings are parsed, checked and converted into efficient
+formatting code at compile-time. This supports arguments of built-in and string
+types as well as user-defined types with ``constexpr`` ``parse`` functions in
+their ``formatter`` specializations. Format string compilation can generate more
+binary code compared to the default API and is only recommended in places where
+formatting is a performance bottleneck.
 
 .. doxygendefine:: FMT_COMPILE
 
@@ -441,7 +460,11 @@ Terminal color and text style
 
 ``fmt/color.h`` provides support for terminal color and text style output.
 
-.. doxygenfunction:: print(const text_style&, const S&, const Args&...)
+.. doxygenfunction:: print(const text_style &ts, const S &format_str, const Args&... args)
+
+.. doxygenfunction:: fg(detail::color_type)
+
+.. doxygenfunction:: bg(detail::color_type)
 
 .. _ostream-api:
 
@@ -466,7 +489,7 @@ user-defined types that have overloaded ``operator<<``::
   std::string s = fmt::format("The date is {}", date(2012, 12, 9));
   // s == "The date is 2012-12-9"
 
-.. doxygenfunction:: print(std::basic_ostream<Char>&, const S&, Args&&...)
+.. doxygenfunction:: print(std::basic_ostream<Char> &os, const S &format_str, Args&&... args)
 
 .. _printf-api:
 
@@ -475,16 +498,16 @@ user-defined types that have overloaded ``operator<<``::
 
 The header ``fmt/printf.h`` provides ``printf``-like formatting functionality.
 The following functions use `printf format string syntax
-<http://pubs.opengroup.org/onlinepubs/009695399/functions/fprintf.html>`_ with
+<https://pubs.opengroup.org/onlinepubs/009695399/functions/fprintf.html>`_ with
 the POSIX extension for positional arguments. Unlike their standard
 counterparts, the ``fmt`` functions are type-safe and throw an exception if an
 argument type doesn't match its format specification.
 
-.. doxygenfunction:: printf(const S&, const Args&...)
+.. doxygenfunction:: printf(const S &format_str, const Args&... args)
 
-.. doxygenfunction:: fprintf(std::FILE *, const S&, const Args&...)
+.. doxygenfunction:: fprintf(std::FILE *f, const S &format, const Args&... args)
 
-.. doxygenfunction:: fprintf(std::basic_ostream<Char>&, const S&, const Args&...)
+.. doxygenfunction:: fprintf(std::basic_ostream<Char> &os, const S &format_str, const Args&... args)
 
 .. doxygenfunction:: sprintf(const S&, const Args&...)
 
