@@ -33,7 +33,7 @@ Once the dump has been acquired you can pass its path to clairvoyance as well as
 ./clairvoyance <dump path> [<page dir pa>]
 ```
 
-This generates a file with the *clairvoyance* extension that you then can visualize in your browser at [0vercl0k.github.io/clairvoyance](https://0vercl0k.github.io/clairvoyance) or locally by opening [viewer/index.html](viewer/index.html) in your browser.
+This generates a file with the *clairvoyance* extension that you then can visualize in your browser at [0vercl0k.github.io/clairvoyance](https://0vercl0k.github.io/clairvoyance) or by checking out the [gh-pages](https://github.com/0vercl0k/clairvoyance/tree/gh-pages) branch which is where the viewer is hosted at.
 
 
 <p align='center'>
