@@ -60,12 +60,17 @@
     //
 
     function loadDemo(Name) {
+      document.getElementById('spinner').style.display = '';
       fetch(`./demos/${Name}`).then(R => {
         return R.text();
       }).then(R => {
         if (loadItUp(R)) {
           setName(Name);
         }
+      }).catch((E) => {
+        alert(`${E}`);
+      }).finally(() => {
+        document.getElementById('spinner').style.display = 'none';
       });
     }
 
@@ -80,12 +85,16 @@
         if (loadItUp(Reader.result)) {
           setName(File.name);
         }
+
+        document.getElementById('spinner').style.display = 'none';
       };
 
       Reader.onerror = () => {
         alert(`${Reader.error}`);
+        document.getElementById('spinner').style.display = 'none';
       };
 
+      document.getElementById('spinner').style.display = '';
       Reader.readAsText(File);
     }
   </script>
@@ -115,6 +124,7 @@
         <label class='me-3' id='clicked'></label>
         <label class='me-3' id='name'></label>
         <label class='btn btn-outline-success me-2'>
+          <span id='spinner' class='spinner-border spinner-border-sm' style='display: none' role='status' aria-hidden='true'></span>
           🔍Browse clairvoyance file<input type='file' onchange='read(this)' hidden>
         </label>
       </div>
@@ -132,7 +142,7 @@
     <div class='container-fluid'>
       <div class='row'>
         <div class='col-sm' style='border-radius: 15px;'>
-          <img id='preview' src='https://raw.githubusercontent.com/0vercl0k/clairvoyance/main/pics/ida64_dmp-ph.annotated.png' width='100%' style='border-radius: 15px;' alt='clairvoyance'>
+          <img id='preview' src='pics/ida64_dmp-ph.annotated.png' width='100%' style='border-radius: 15px;' alt='clairvoyance'>
           <canvas id='canvas' style='width: 100%; display: none; image-rendering: pixelated; '>
             Your browser does not support the HTML 5 Canvas.
           </canvas>
